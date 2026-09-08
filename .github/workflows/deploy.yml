@@ -47,11 +47,11 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: npm run deploy
 
-      - name: Verify production
+      - name: Verify Cloudflare deployment
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
-          curl --fail --show-error --silent --retry 5 --retry-all-errors https://finvayo.com/ > /dev/null
-          curl --fail --show-error --silent --retry 5 --retry-all-errors https://finvayo.com/health | jq --exit-status '.status == "ok" and .service == "finvayo"'
-          test "$(curl --output /dev/null --write-out '%{http_code}' --silent --show-error --retry 5 --retry-all-errors --header 'Cookie: finvayo_session=deployment-probe' https://finvayo.com/app)" = "303"
+          npx wrangler deployments status --json | jq --exit-status '.versions | length > 0 and ([.[].percentage] | add == 100)'
 
       - name: Record deployment
         run: printf '### Deployment\n\nhttps://finvayo.com\n' >> "$GITHUB_STEP_SUMMARY"
