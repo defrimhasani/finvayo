@@ -1,9 +1,25 @@
+import { env } from "cloudflare:workers";
 import { SELF } from "cloudflare:test";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import worker from "../src/index";
 
+async function stripeSignature(body: string, secret: string, timestamp: number): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = new Uint8Array(
+    await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${timestamp}.${body}`)),
+  );
+  return Array.from(signature, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("Finvayo Worker", () => {
@@ -111,6 +127,139 @@ describe("Finvayo Worker", () => {
     expect(valid.headers.get("set-cookie")).toContain("HttpOnly");
     expect(valid.headers.get("set-cookie")).toContain("Secure");
     expect(valid.headers.get("set-cookie")).toContain("SameSite=Lax");
+  });
+
+  it("stores workspace cash snapshots and entries in integer minor units", async () => {
+    const form = new FormData();
+    form.set("email", `cash-${crypto.randomUUID()}@example.com`);
+    form.set("password", "a-secure-example-password");
+    form.set("terms", "on");
+    const signup = await SELF.fetch("https://finvayo.test/auth/signup", { method: "POST", body: form, redirect: "manual" });
+    const cookie = signup.headers.get("set-cookie")?.split(";")[0] ?? "";
+    const headers = { cookie, origin: "https://finvayo.test", "content-type": "application/json" };
+
+    const snapshot = await SELF.fetch("https://finvayo.test/api/cash-snapshots", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ balanceMinor: 125050, effectiveDate: "2026-09-08" }),
+    });
+    expect(snapshot.status).toBe(201);
+
+    const entry = await SELF.fetch("https://finvayo.test/api/cash-entries", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        direction: "inflow",
+        name: "September retainer",
+        amountMinor: 240000,
+        scheduledDate: "2026-09-20",
+        status: "invoiced",
+        clientName: "Acme Studio",
+        invoiceReference: "INV-024",
+      }),
+    });
+    expect(entry.status).toBe(201);
+    const { id } = (await entry.json()) as { id: string };
+
+    const paid = await SELF.fetch(`https://finvayo.test/api/cash-entries/${id}`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ status: "paid", actualAmountMinor: 240000 }),
+    });
+    expect(paid.status).toBe(200);
+
+    const financials = await SELF.fetch("https://finvayo.test/api/financials", { headers: { cookie } });
+    const data = (await financials.json()) as {
+      currency: string;
+      snapshot: { balanceMinor: number };
+      entries: Array<{ amountMinor: number; status: string; actualAmountMinor: number }>;
+    };
+    expect(data.currency).toBe("USD");
+    expect(data.snapshot.balanceMinor).toBe(125050);
+    expect(data.entries).toEqual(expect.arrayContaining([expect.objectContaining({ amountMinor: 240000, status: "paid", actualAmountMinor: 240000 })]));
+  });
+
+  it("requires authentication and same-origin writes for financial data", async () => {
+    const unauthorized = await SELF.fetch("https://finvayo.test/api/financials");
+    expect(unauthorized.status).toBe(401);
+
+    const forbidden = await SELF.fetch("https://finvayo.test/api/cash-entries", {
+      method: "POST",
+      headers: { origin: "https://attacker.example", "content-type": "application/json" },
+      body: "{}",
+    });
+    expect(forbidden.status).toBe(403);
+  });
+
+  it("projects signed Stripe test subscription events idempotently", async () => {
+    const email = `billing-${crypto.randomUUID()}@example.com`;
+    const form = new FormData();
+    form.set("email", email);
+    form.set("password", "a-secure-example-password");
+    form.set("terms", "on");
+    await SELF.fetch("https://finvayo.test/auth/signup", { method: "POST", body: form });
+    const workspace = await env.DB
+      .prepare("SELECT workspaces.id FROM workspaces JOIN users ON users.id = workspaces.owner_user_id WHERE users.email = ?")
+      .bind(email)
+      .first<{ id: string }>();
+    expect(workspace).not.toBeNull();
+
+    const event = JSON.stringify({
+      id: `evt_${crypto.randomUUID()}`,
+      type: "customer.subscription.updated",
+      created: Math.floor(Date.now() / 1000),
+      livemode: false,
+      data: {
+        object: {
+          id: "sub_test",
+          customer: "cus_test",
+          status: "active",
+          cancel_at_period_end: false,
+          metadata: { workspace_id: workspace?.id },
+          items: { data: [{ price: { id: "price_monthly_test" }, current_period_end: 1_800_000_000 }] },
+        },
+      },
+    });
+    const timestamp = Math.floor(Date.now() / 1000);
+    const secret = "whsec_test_secret";
+    const signature = await stripeSignature(event, secret, timestamp);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json({
+          id: "sub_test",
+          customer: "cus_test",
+          status: "active",
+          cancel_at_period_end: false,
+          metadata: { workspace_id: workspace?.id },
+          items: { data: [{ price: { id: "price_monthly_test" }, current_period_end: 1_800_000_000 }] },
+        }),
+      ),
+    );
+    const stripeEnv = { ...env, STRIPE_SECRET_KEY: "sk_test_secret", STRIPE_WEBHOOK_SECRET: secret } as unknown as Env;
+    const request = () =>
+      new Request("https://finvayo.test/api/stripe/webhook", {
+        method: "POST",
+        headers: { "stripe-signature": `t=${timestamp},v1=${signature}` },
+        body: event,
+      }) as Parameters<typeof worker.fetch>[0];
+
+    expect((await worker.fetch(request(), stripeEnv)).status).toBe(200);
+    expect((await worker.fetch(request(), stripeEnv)).status).toBe(200);
+    const subscription = await env.DB
+      .prepare("SELECT status, stripe_subscription_id AS stripeSubscriptionId FROM subscriptions WHERE workspace_id = ?")
+      .bind(workspace?.id)
+      .first<{ status: string; stripeSubscriptionId: string }>();
+    expect(subscription).toEqual({ status: "active", stripeSubscriptionId: "sub_test" });
+  });
+
+  it("rejects unsigned Stripe webhooks", async () => {
+    const stripeEnv = { ...env, STRIPE_WEBHOOK_SECRET: "whsec_test_secret" } as unknown as Env;
+    const request = new Request("https://finvayo.test/api/stripe/webhook", { method: "POST", body: "{}" }) as Parameters<
+      typeof worker.fetch
+    >[0];
+    const response = await worker.fetch(request, stripeEnv);
+    expect(response.status).toBe(400);
   });
 
   it("serves the no-cache product preview shell", async () => {

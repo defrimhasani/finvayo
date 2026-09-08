@@ -24,6 +24,23 @@ npm run dev
 
 The local site runs at `http://localhost:8787`. The deployment health endpoint is available at `/health`.
 
+### Stripe Test Mode
+
+Finvayo uses Stripe-hosted Checkout, so card details never pass through or persist in the Worker. Create a Stripe test-mode product with monthly and annual recurring prices, copy `.dev.vars.example` to `.dev.vars`, and set the four test values. Prefer a restricted `rk_test_` key with only the Stripe permissions the integration requires.
+
+For deployed environments, configure them without committing values:
+
+```sh
+npx wrangler secret put STRIPE_SECRET_KEY
+npx wrangler secret put STRIPE_WEBHOOK_SECRET
+npx wrangler secret put STRIPE_MONTHLY_PRICE_ID
+npx wrangler secret put STRIPE_ANNUAL_PRICE_ID
+```
+
+Configure the Stripe test webhook endpoint as `https://finvayo.com/api/stripe/webhook` and subscribe it to `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, and `invoice.payment_failed`. Use Stripe's test card `4242 4242 4242 4242` in Checkout with any future expiry and any CVC.
+
+Workspace payments and expenses are planning records stored in D1 as integer minor units. Stripe subscription records contain Stripe identifiers and status only; Finvayo never stores payment-card data.
+
 ## Validation
 
 ```sh

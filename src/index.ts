@@ -11,6 +11,8 @@ import {
   validPassword,
   verifyPassword,
 } from "./auth";
+import { createCashEntry, createCashSnapshot, deleteCashEntry, getFinancials, updateCashEntry } from "./financials";
+import { billingStatus, createCheckout, createPortal, handleStripeWebhook, type StripeEnv } from "./stripe";
 
 const JSON_HEADERS = {
   "cache-control": "no-store",
@@ -98,6 +100,9 @@ async function handleSignup(request: Request, env: Env): Promise<Response> {
           "INSERT INTO workspaces (id, owner_user_id, name, currency, timezone, trial_ends_at, created_at) VALUES (?, ?, ?, 'USD', 'UTC', ?, ?)",
         )
         .bind(workspaceId, userId, workspaceName, now + 14 * 86_400, now),
+      env.DB
+        .prepare("INSERT INTO subscriptions (workspace_id, status, created_at, updated_at) VALUES (?, 'trialing', ?, ?)")
+        .bind(workspaceId, now, now),
     ]);
   } catch {
     return redirect(request, "/signup?error=unavailable");
@@ -151,6 +156,24 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
     await revokeSession(request, env.DB);
     return redirect(request, "/login", clearSessionCookie);
   }
+
+  if (url.pathname === "/api/stripe/webhook" && request.method === "POST") {
+    return handleStripeWebhook(request, env as StripeEnv);
+  }
+
+  if (url.pathname.startsWith("/api/") && request.method !== "GET" && !sameOrigin(request)) {
+    return Response.json({ error: "Forbidden" }, { status: 403, headers: JSON_HEADERS });
+  }
+
+  if (url.pathname === "/api/financials" && request.method === "GET") return getFinancials(request, env.DB);
+  if (url.pathname === "/api/cash-snapshots" && request.method === "POST") return createCashSnapshot(request, env.DB);
+  if (url.pathname === "/api/cash-entries" && request.method === "POST") return createCashEntry(request, env.DB);
+  const cashEntryMatch = url.pathname.match(/^\/api\/cash-entries\/([0-9a-f-]+)$/i);
+  if (cashEntryMatch && request.method === "PATCH") return updateCashEntry(request, env.DB, cashEntryMatch[1]);
+  if (cashEntryMatch && request.method === "DELETE") return deleteCashEntry(request, env.DB, cashEntryMatch[1]);
+  if (url.pathname === "/api/billing" && request.method === "GET") return billingStatus(request, env as StripeEnv);
+  if (url.pathname === "/api/billing/checkout" && request.method === "POST") return createCheckout(request, env as StripeEnv);
+  if (url.pathname === "/api/billing/portal" && request.method === "POST") return createPortal(request, env as StripeEnv);
 
   if (url.pathname.startsWith("/api/")) {
     return Response.json({ error: "Not found" }, { status: 404, headers: JSON_HEADERS });
