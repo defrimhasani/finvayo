@@ -15,6 +15,13 @@ npm install
 npm run dev
 ```
 
+Initialize the local D1 database, then run the site:
+
+```sh
+npx wrangler d1 migrations apply DB --local
+npm run dev
+```
+
 The local site runs at `http://localhost:8787`. The deployment health endpoint is available at `/health`.
 
 ## Validation
@@ -34,7 +41,7 @@ npx wrangler login
 npm run deploy
 ```
 
-The deployment creates the `finvayo` Worker and attaches the custom domain at `https://finvayo.com`.
+The deployment applies pending production D1 migrations, deploys the `finvayo` Worker, and attaches the route at `https://finvayo.com`.
 
 ## Product Documentation
 

@@ -3,9 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="robots" content="noindex" />
+    {{ROBOTS}}
     <meta name="theme-color" content="#f3efe5" />
-    <title>Overview preview | Finvayo</title>
+    <title>Overview | Finvayo</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/styles.css" />
     <link rel="stylesheet" href="/product.css" />
@@ -18,40 +18,30 @@
         Finvayo
       </a>
       <nav class="app-nav" aria-label="Application navigation">
-        <a class="active" href="/app/preview" aria-current="page">
-          <span aria-hidden="true">⌂</span> Overview
-        </a>
+        <a class="active" href="/app" aria-current="page"><span aria-hidden="true">⌂</span> Overview</a>
         <a href="#cash-plan"><span aria-hidden="true">↗</span> Cash plan</a>
         <a href="#scenario"><span aria-hidden="true">◇</span> Scenarios</a>
       </nav>
       <div class="sidebar-bottom">
         <a href="#settings"><span aria-hidden="true">⚙</span> Settings</a>
-        <a href="/login"><span aria-hidden="true">↪</span> Leave preview</a>
+        {{EXIT}}
         <div class="user-chip">
-          <span>DH</span>
-          <div><strong>Demo workspace</strong><small>Sample data</small></div>
+          <span>FV</span>
+          <div><strong>{{WORKSPACE}}</strong><small>{{ACCOUNT_LABEL}}</small></div>
         </div>
       </div>
     </aside>
 
     <header class="mobile-app-header">
       <a class="wordmark" href="/"><svg aria-hidden="true" viewBox="0 0 32 32"><path d="M5 24V8h22M8 20l5-5 4 3 8-9" /></svg>Finvayo</a>
-      <a href="/login">Exit preview</a>
+      <a href="/login">Account</a>
     </header>
 
     <main class="app-main" id="app-main">
-      <div class="preview-banner">
-        <span>Product preview</span>
-        <p>This workspace uses sample data. Create your own workspace when self-service accounts open.</p>
-        <a href="/login">Start free</a>
-      </div>
-
+      {{BANNER}}
       <header class="workspace-header">
-        <div>
-          <p class="app-kicker">Tuesday, 8 September</p>
-          <h1>Good morning, Defrim.</h1>
-        </div>
-        <div class="review-state"><i></i><span>Plan current</span><strong>Reviewed today</strong></div>
+        <div><p class="app-kicker">Your cash outlook</p><h1>Good to see you, {{NAME}}.</h1></div>
+        <div class="review-state"><i></i><span>Example plan</span><strong>Ready to personalize</strong></div>
       </header>
 
       <section class="decision-grid" aria-label="Current cash position">
@@ -65,11 +55,9 @@
             <div><span>Minimum buffer</span><strong>$2,000</strong></div>
           </div>
         </article>
-
         <article class="action-card">
           <div class="card-heading"><span>Recommended action</span><small>Today</small></div>
-          <p class="action-type">Invoice follow-up</p>
-          <h2>Acme Studio is 8 days overdue.</h2>
+          <p class="action-type">Invoice follow-up</p><h2>Acme Studio is 8 days overdue.</h2>
           <div class="action-meta"><span>INV-024</span><strong>$2,400</strong></div>
           <a href="#follow-up">Prepare follow-up <span aria-hidden="true">→</span></a>
         </article>
@@ -80,7 +68,7 @@
           <div><p class="app-kicker">Cash outlook</p><h2>The next 90 days</h2></div>
           <div class="legend"><span><i class="solid"></i>Projected cash</span><span><i class="dashed"></i>Protected level</span></div>
         </div>
-        <div class="app-chart" role="img" aria-label="Projected cash remains above the protected level for the next 90 days. The lowest balance is 5,940 dollars on 18 October.">
+        <div class="app-chart" role="img" aria-label="Example projected cash remains above the protected level for the next 90 days.">
           <div class="axis"><span>$14k</span><span>$10k</span><span>$6k</span><span>$2k</span></div>
           <div class="plot">
             <div class="protected-zone"><span>Protected $4,100</span></div>
@@ -91,35 +79,30 @@
             </svg>
             <div class="event event-in" style="left: 23%"><span>+ $3,200</span><small>Client payment</small></div>
             <div class="event event-out" style="left: 55%"><span>− $1,800</span><small>Quarterly tax</small></div>
-            <div class="plot-dates"><span>Today</span><span>8 Oct</span><span>7 Nov</span><span>6 Dec</span></div>
+            <div class="plot-dates"><span>Today</span><span>30 days</span><span>60 days</span><span>90 days</span></div>
           </div>
         </div>
-        <p class="chart-summary"><span>01</span>Your lowest point is <strong>$5,940 on 18 October</strong>, $1,840 above your protected level.</p>
+        <p class="chart-summary"><span>01</span>Your lowest point is <strong>$5,940 in 40 days</strong>, $1,840 above your protected level.</p>
       </section>
 
       <section class="lower-grid">
         <article class="ledger-card">
           <div class="section-row"><div><p class="app-kicker">Coming up</p><h2>Next 14 days</h2></div><a href="#all">View cash plan</a></div>
-          <div class="ledger-row"><time datetime="2026-09-12"><strong>12</strong><span>Sep</span></time><div><strong>Northstar retainer</strong><span>Expected income</span></div><b class="money-in">+$3,200</b></div>
-          <div class="ledger-row"><time datetime="2026-09-15"><strong>15</strong><span>Sep</span></time><div><strong>Contractor payment</strong><span>Planned expense</span></div><b>−$1,100</b></div>
-          <div class="ledger-row"><time datetime="2026-09-18"><strong>18</strong><span>Sep</span></time><div><strong>Software renewals</strong><span>3 recurring expenses</span></div><b>−$284</b></div>
+          <div class="ledger-row"><time><strong>+4</strong><span>days</span></time><div><strong>Northstar retainer</strong><span>Expected income</span></div><b class="money-in">+$3,200</b></div>
+          <div class="ledger-row"><time><strong>+7</strong><span>days</span></time><div><strong>Contractor payment</strong><span>Planned expense</span></div><b>−$1,100</b></div>
+          <div class="ledger-row"><time><strong>+10</strong><span>days</span></time><div><strong>Software renewals</strong><span>3 recurring expenses</span></div><b>−$284</b></div>
         </article>
-
         <article class="scenario-card" id="scenario">
-          <p class="app-kicker">Before you commit</p>
-          <h2>Check a purchase.</h2>
+          <p class="app-kicker">Before you commit</p><h2>Check a purchase.</h2>
           <p>See how a new expense changes your protected cash before adding it to the plan.</p>
           <div class="scenario-fields" aria-hidden="true"><span>$ Amount</span><span>Payment date</span></div>
           <button class="button button-primary" type="button" disabled>Run a scenario</button>
-          <small>Available when your workspace is active.</small>
+          <small>Available after you complete setup.</small>
         </article>
       </section>
     </main>
-
     <nav class="mobile-bottom-nav" aria-label="Mobile application navigation">
-      <a class="active" href="/app/preview"><span>⌂</span>Overview</a>
-      <a href="#cash-plan"><span>↗</span>Cash plan</a>
-      <a href="#scenario"><span>◇</span>Scenarios</a>
+      <a class="active" href="/app"><span>⌂</span>Overview</a><a href="#cash-plan"><span>↗</span>Cash plan</a><a href="#scenario"><span>◇</span>Scenarios</a>
     </nav>
   </body>
 </html>

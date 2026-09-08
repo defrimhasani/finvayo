@@ -9,10 +9,18 @@
       "zone_name": "finvayo.com"
     }
   ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "finvayo-production",
+      "database_id": "90e8ea9e-044c-4a6a-be82-b35b6b8d7f4b",
+      "migrations_dir": "migrations"
+    }
+  ],
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
-    "run_worker_first": ["/health", "/api/*", "/login", "/login/*", "/app", "/app/*"]
+    "run_worker_first": ["/health", "/api/*", "/login", "/login/*", "/signup", "/signup/*", "/auth/*", "/app", "/app/*", "/app-shell.html"]
   },
   "limits": {
     "cpu_ms": 50
