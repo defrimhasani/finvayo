@@ -26,10 +26,9 @@ jobs:
         run: |
           existing=$(npx wrangler d1 list --json | jq '[.[] | select(.name == "finvayo-production")][0]')
           if [ "$existing" = "null" ]; then
-            npx wrangler d1 create finvayo-production --jurisdiction=eu --json > d1.json
-          else
-            printf '%s\n' "$existing" > d1.json
+            npx wrangler d1 create finvayo-production --jurisdiction=eu
           fi
+          npx wrangler d1 list --json | jq '[.[] | select(.name == "finvayo-production")][0]' > d1.json
           jq '{name, uuid, jurisdiction}' d1.json
 
       - uses: actions/upload-artifact@v4
