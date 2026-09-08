@@ -12,6 +12,7 @@ import {
   verifyPassword,
 } from "./auth";
 import { createCashEntry, createCashSnapshot, deleteCashEntry, getFinancials, updateCashEntry } from "./financials";
+import { createParty, deleteParty, getParties } from "./parties";
 import { billingStatus, createCheckout, createPortal, handleStripeWebhook, type StripeEnv } from "./stripe";
 
 const JSON_HEADERS = {
@@ -172,6 +173,10 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
   const cashEntryMatch = url.pathname.match(/^\/api\/cash-entries\/([0-9a-f-]+)$/i);
   if (cashEntryMatch && request.method === "PATCH") return updateCashEntry(request, env.DB, cashEntryMatch[1]);
   if (cashEntryMatch && request.method === "DELETE") return deleteCashEntry(request, env.DB, cashEntryMatch[1]);
+  if (url.pathname === "/api/parties" && request.method === "GET") return getParties(request, env.DB);
+  if (url.pathname === "/api/parties" && request.method === "POST") return createParty(request, env.DB);
+  const partyMatch = url.pathname.match(/^\/api\/parties\/([0-9a-f-]+)$/i);
+  if (partyMatch && request.method === "DELETE") return deleteParty(request, env.DB, partyMatch[1]);
   if (url.pathname === "/api/billing" && request.method === "GET") return billingStatus(request, env as StripeEnv);
   if (url.pathname === "/api/billing/checkout" && request.method === "POST") return createCheckout(request, env as StripeEnv);
   if (url.pathname === "/api/billing/portal" && request.method === "POST") return createPortal(request, env as StripeEnv);

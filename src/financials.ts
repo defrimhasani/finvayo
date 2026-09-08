@@ -18,6 +18,7 @@ type CashEntryInput = {
   recurrence?: unknown;
   included?: unknown;
   actualAmountMinor?: unknown;
+  partyId?: unknown;
 };
 
 function json(data: unknown, status = 200): Response {
@@ -77,6 +78,7 @@ export async function getFinancials(request: Request, db: D1Database): Promise<R
         `SELECT id, direction, name, amount_minor AS amountMinor, scheduled_date AS scheduledDate,
           status, client_name AS clientName, invoice_reference AS invoiceReference, category,
           recurrence, included, actual_amount_minor AS actualAmountMinor, completed_at AS completedAt,
+          party_id AS partyId, party_name AS partyName,
           created_at AS createdAt, updated_at AS updatedAt
          FROM cash_entries WHERE workspace_id = ? ORDER BY scheduled_date, created_at`,
       )
@@ -119,6 +121,7 @@ function validateEntry(input: CashEntryInput): string | null {
   if (input.recurrence !== undefined && input.recurrence !== null && input.recurrence !== "monthly") return "Invalid recurrence";
   if (input.included !== undefined && typeof input.included !== "boolean") return "Invalid inclusion setting";
   if (input.status === "paid" && !validAmount(input.actualAmountMinor)) return "Paid entries require an actual amount";
+  if (input.partyId !== undefined && input.partyId !== null && typeof input.partyId !== "string") return "Invalid party";
   return null;
 }
 
@@ -133,12 +136,23 @@ export async function createCashEntry(request: Request, db: D1Database): Promise
   const id = crypto.randomUUID();
   const now = Math.floor(Date.now() / 1000);
   const paid = input.status === "paid";
+  let party: { id: string; name: string; role: string } | null = null;
+  if (input.partyId) {
+    party = await db
+      .prepare("SELECT id, name, role FROM parties WHERE id = ? AND workspace_id = ?")
+      .bind(input.partyId, user.workspaceId)
+      .first<{ id: string; name: string; role: string }>();
+    if (!party) return json({ error: "Party not found" }, 400);
+    const requiredRole = input.direction === "inflow" ? "customer" : "supplier";
+    if (party.role !== requiredRole && party.role !== "both") return json({ error: `Party must be a ${requiredRole}` }, 400);
+  }
   await db
     .prepare(
       `INSERT INTO cash_entries
        (id, workspace_id, direction, name, amount_minor, scheduled_date, status, client_name,
-        invoice_reference, category, recurrence, included, actual_amount_minor, completed_at, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         invoice_reference, category, recurrence, included, actual_amount_minor, completed_at, party_id, party_name,
+         created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       id,
@@ -155,6 +169,8 @@ export async function createCashEntry(request: Request, db: D1Database): Promise
       input.included === false ? 0 : 1,
       paid ? input.actualAmountMinor : null,
       paid ? now : null,
+      party?.id ?? null,
+      party?.name ?? null,
       now,
       now,
     )

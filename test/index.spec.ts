@@ -227,6 +227,74 @@ describe("Finvayo Worker", () => {
     expect(afterDelete.entries.some((entry) => entry.id === id)).toBe(false);
   });
 
+  it("registers parties and preserves their names on transaction history", async () => {
+    const form = new FormData();
+    form.set("email", `parties-${crypto.randomUUID()}@example.com`);
+    form.set("password", "a-secure-example-password");
+    form.set("terms", "on");
+    const signup = await SELF.fetch("https://finvayo.test/auth/signup", { method: "POST", body: form, redirect: "manual" });
+    const cookie = signup.headers.get("set-cookie")?.split(";")[0] ?? "";
+    const headers = { cookie, origin: "https://finvayo.test", "content-type": "application/json" };
+
+    const createdParty = await SELF.fetch("https://finvayo.test/api/parties", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ name: "Northstar Ltd", role: "customer", email: "accounts@northstar.example" }),
+    });
+    expect(createdParty.status).toBe(201);
+    const { id: partyId } = (await createdParty.json()) as { id: string };
+
+    const parties = await SELF.fetch("https://finvayo.test/api/parties", { headers: { cookie } });
+    await expect(parties.json()).resolves.toEqual({
+      parties: expect.arrayContaining([
+        expect.objectContaining({ id: partyId, name: "Northstar Ltd", role: "customer", email: "accounts@northstar.example" }),
+      ]),
+    });
+
+    const incompatible = await SELF.fetch("https://finvayo.test/api/cash-entries", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        direction: "outflow",
+        name: "Incorrect supplier payment",
+        amountMinor: 1000,
+        actualAmountMinor: 1000,
+        scheduledDate: "2026-09-08",
+        status: "paid",
+        category: "other",
+        partyId,
+      }),
+    });
+    expect(incompatible.status).toBe(400);
+    await expect(incompatible.json()).resolves.toEqual({ error: "Party must be a supplier" });
+
+    const transaction = await SELF.fetch("https://finvayo.test/api/cash-entries", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        direction: "inflow",
+        name: "Northstar retainer",
+        amountMinor: 320000,
+        actualAmountMinor: 320000,
+        scheduledDate: "2026-09-08",
+        status: "paid",
+        invoiceReference: "INV-100",
+        partyId,
+      }),
+    });
+    expect(transaction.status).toBe(201);
+    const { id: transactionId } = (await transaction.json()) as { id: string };
+
+    const removedParty = await SELF.fetch(`https://finvayo.test/api/parties/${partyId}`, { method: "DELETE", headers });
+    expect(removedParty.status).toBe(204);
+    const financials = (await (await SELF.fetch("https://finvayo.test/api/financials", { headers: { cookie } })).json()) as {
+      entries: Array<{ id: string; partyId: string | null; partyName: string }>;
+    };
+    expect(financials.entries).toContainEqual(
+      expect.objectContaining({ id: transactionId, partyId: null, partyName: "Northstar Ltd" }),
+    );
+  });
+
   it("requires authentication and same-origin writes for financial data", async () => {
     const unauthorized = await SELF.fetch("https://finvayo.test/api/financials");
     expect(unauthorized.status).toBe(401);
