@@ -1,0 +1,39 @@
+name: Provision D1
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Create or locate production database
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          existing=$(npx wrangler d1 list --json | jq '[.[] | select(.name == "finvayo-production")][0]')
+          if [ "$existing" = "null" ]; then
+            npx wrangler d1 create finvayo-production --jurisdiction=eu --json > d1.json
+          else
+            printf '%s\n' "$existing" > d1.json
+          fi
+          jq '{name, uuid, jurisdiction}' d1.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: finvayo-d1
+          path: d1.json
+          retention-days: 1
