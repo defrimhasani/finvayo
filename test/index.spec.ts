@@ -192,7 +192,11 @@ describe("Finvayo Worker", () => {
     resetForm.set("password", "replacement-secure-password");
     resetForm.set("passwordConfirmation", "replacement-secure-password");
     const reset = await worker.fetch(
-      new Request("https://finvayo.test/auth/reset-password", { method: "POST", headers: { "cf-connecting-ip": "192.0.2.13" }, body: resetForm }) as Parameters<typeof worker.fetch>[0],
+      new Request("https://finvayo.test/auth/reset-password", {
+        method: "POST",
+        headers: { "cf-connecting-ip": "192.0.2.13", origin: "null" },
+        body: resetForm,
+      }) as Parameters<typeof worker.fetch>[0],
       emailEnv,
     );
     expect(reset.status).toBe(303);
