@@ -3,6 +3,12 @@
   "name": "finvayo",
   "main": "src/index.ts",
   "compatibility_date": "2026-09-07",
+  "routes": [
+    {
+      "pattern": "finvayo.com",
+      "custom_domain": true
+    }
+  ],
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",

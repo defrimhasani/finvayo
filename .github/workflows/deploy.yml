@@ -1,0 +1,49 @@
+name: Deploy to Cloudflare
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Validate and deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: https://finvayo.com
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate application
+        run: npm run check
+
+      - name: Deploy Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npm run deploy
+
+      - name: Verify production
+        run: |
+          curl --fail --show-error --silent --retry 5 --retry-all-errors https://finvayo.com/ > /dev/null
+          curl --fail --show-error --silent --retry 5 --retry-all-errors https://finvayo.com/health | jq --exit-status '.status == "ok" and .service == "finvayo"'
+          printf '### Deployment\n\nhttps://finvayo.com\n' >> "$GITHUB_STEP_SUMMARY"

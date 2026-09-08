@@ -34,7 +34,7 @@ npx wrangler login
 npm run deploy
 ```
 
-The first deployment creates the `finvayo` Worker. Custom-domain routing is configured after the initial `workers.dev` deployment is verified.
+The deployment creates the `finvayo` Worker and attaches the custom domain at `https://finvayo.com`.
 
 ## Product Documentation
 
