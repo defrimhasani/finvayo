@@ -655,16 +655,22 @@ describe("Finvayo Worker", () => {
     const headers = { cookie, origin: "https://finvayo.test", "content-type": "application/json" };
     const customerResponse = await worker.fetch(new Request("https://finvayo.test/api/parties", { method: "POST", headers, body: JSON.stringify({ name: "Invoice Client", role: "customer", email: "billing@example.com" }) }) as Parameters<typeof worker.fetch>[0], emailEnv);
     const { id: customerId } = (await customerResponse.json()) as { id: string };
-    const created = await worker.fetch(new Request("https://finvayo.test/api/invoices", { method: "POST", headers, body: JSON.stringify({ customerId, invoiceNumber: "INV-200", issueDate: "2026-09-08", dueDate: "2026-09-22", taxRateBasisPoints: 2000, notes: "Thank you", items: [{ description: "Consulting", quantity: 2.5, unitPriceMinor: 10000 }] }) }) as Parameters<typeof worker.fetch>[0], emailEnv);
+    const created = await worker.fetch(new Request("https://finvayo.test/api/invoices", { method: "POST", headers, body: JSON.stringify({ customerId, issueDate: "2026-09-08", dueDate: "2026-09-22", taxRateBasisPoints: 2000, notes: "Thank you", items: [{ description: "Consulting", quantity: 2.5, unitPriceMinor: 10000 }] }) }) as Parameters<typeof worker.fetch>[0], emailEnv);
     expect(created.status).toBe(201);
-    const { id } = (await created.json()) as { id: string };
+    const { id, invoiceNumber } = (await created.json()) as { id: string; invoiceNumber: string };
+    expect(invoiceNumber).toBe("INV-0001");
+    const second = await worker.fetch(new Request("https://finvayo.test/api/invoices", { method: "POST", headers, body: JSON.stringify({ customerId, invoiceNumber: "MANUAL-999", issueDate: "2026-09-08", dueDate: "2026-09-22", taxRateBasisPoints: 0, items: [{ description: "Support", quantity: 1, unitPriceMinor: 5000 }] }) }) as Parameters<typeof worker.fetch>[0], emailEnv);
+    expect(second.status).toBe(201);
+    await expect(second.json()).resolves.toEqual(expect.objectContaining({ invoiceNumber: "INV-0002" }));
+    const edited = await worker.fetch(new Request(`https://finvayo.test/api/invoices/${id}`, { method: "PATCH", headers, body: JSON.stringify({ customerId, invoiceNumber: "MANUAL-001", issueDate: "2026-09-08", dueDate: "2026-09-22", taxRateBasisPoints: 2000, notes: "Updated", items: [{ description: "Consulting", quantity: 2.5, unitPriceMinor: 10000 }] }) }) as Parameters<typeof worker.fetch>[0], emailEnv);
+    expect(edited.status).toBe(200);
     const invoiceList = await worker.fetch(new Request("https://finvayo.test/api/invoices", { headers: { cookie } }) as Parameters<typeof worker.fetch>[0], emailEnv);
     expect(invoiceList.status).toBe(200);
     await expect(invoiceList.json()).resolves.toEqual({
-      invoices: expect.arrayContaining([expect.objectContaining({ id, invoiceNumber: "INV-200", totalMinor: 30000 })]),
+      invoices: expect.arrayContaining([expect.objectContaining({ id, invoiceNumber: "INV-0001", totalMinor: 30000 })]),
     });
     const detail = await worker.fetch(new Request(`https://finvayo.test/api/invoices/${id}`, { headers: { cookie } }) as Parameters<typeof worker.fetch>[0], emailEnv);
-    await expect(detail.json()).resolves.toEqual({ invoice: expect.objectContaining({ id, invoiceNumber: "INV-200", subtotalMinor: 25000, taxMinor: 5000, totalMinor: 30000, status: "draft" }) });
+    await expect(detail.json()).resolves.toEqual({ invoice: expect.objectContaining({ id, invoiceNumber: "INV-0001", subtotalMinor: 25000, taxMinor: 5000, totalMinor: 30000, status: "draft" }) });
 
     send.mockClear();
     const sent = await worker.fetch(new Request(`https://finvayo.test/api/invoices/${id}/send`, { method: "POST", headers, body: "{}" }) as Parameters<typeof worker.fetch>[0], emailEnv);
@@ -675,14 +681,14 @@ describe("Finvayo Worker", () => {
     expect(publicUrl).toBeDefined();
     const publicView = await worker.fetch(new Request(publicUrl ?? "") as Parameters<typeof worker.fetch>[0], emailEnv);
     expect(publicView.status).toBe(200);
-    expect(await publicView.text()).toContain("INV-200");
+    expect(await publicView.text()).toContain("INV-0001");
 
     const paid = await worker.fetch(new Request(`https://finvayo.test/api/invoices/${id}/paid`, { method: "POST", headers, body: JSON.stringify({ paidDate: "2026-09-20" }) }) as Parameters<typeof worker.fetch>[0], emailEnv);
     expect(paid.status).toBe(200);
     const duplicate = await worker.fetch(new Request(`https://finvayo.test/api/invoices/${id}/paid`, { method: "POST", headers, body: JSON.stringify({ paidDate: "2026-09-20" }) }) as Parameters<typeof worker.fetch>[0], emailEnv);
     expect(duplicate.status).toBe(409);
     const financials = (await (await worker.fetch(new Request("https://finvayo.test/api/financials", { headers: { cookie } }) as Parameters<typeof worker.fetch>[0], emailEnv)).json()) as { entries: Array<Record<string, unknown>> };
-    expect(financials.entries).toContainEqual(expect.objectContaining({ name: "Invoice INV-200", amountMinor: 30000, actualAmountMinor: 30000, actualDate: "2026-09-20", status: "paid" }));
+    expect(financials.entries).toContainEqual(expect.objectContaining({ name: "Invoice INV-0001", amountMinor: 30000, actualAmountMinor: 30000, actualDate: "2026-09-20", status: "paid" }));
   });
 
   it("updates workspace settings and locks currency after financial activity", async () => {

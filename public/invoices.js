@@ -107,7 +107,7 @@ function invoicePayload() {
     unitPriceMinor: amountMinor(row.querySelector('[name="unitPrice"]').value),
   }));
   const tax = form.elements.taxRate.value.trim();
-  return { customerId: form.elements.customerId.value, invoiceNumber: form.elements.invoiceNumber.value, issueDate: form.elements.issueDate.value, dueDate: form.elements.dueDate.value, taxRateBasisPoints: /^\d+(?:\.\d{1,2})?$/.test(tax) ? Math.round(Number(tax) * 100) : null, notes: form.elements.notes.value, items: invoiceItems };
+  return { customerId: form.elements.customerId.value, issueDate: form.elements.issueDate.value, dueDate: form.elements.dueDate.value, taxRateBasisPoints: /^\d+(?:\.\d{1,2})?$/.test(tax) ? Math.round(Number(tax) * 100) : null, notes: form.elements.notes.value, items: invoiceItems };
 }
 
 form.addEventListener("submit", async (event) => {

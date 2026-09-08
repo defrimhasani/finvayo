@@ -5,7 +5,7 @@ const JSON_HEADERS = { "cache-control": "no-store", "content-type": "application
 const MAX_AMOUNT_MINOR = 9_000_000_000_000;
 
 type InvoiceItemInput = { description?: unknown; quantity?: unknown; unitPriceMinor?: unknown };
-type InvoiceInput = { customerId?: unknown; invoiceNumber?: unknown; issueDate?: unknown; dueDate?: unknown; taxRateBasisPoints?: unknown; notes?: unknown; items?: unknown };
+type InvoiceInput = { customerId?: unknown; issueDate?: unknown; dueDate?: unknown; taxRateBasisPoints?: unknown; notes?: unknown; items?: unknown };
 type InvoiceDetails = {
   id: string;
   invoiceNumber: string;
@@ -49,7 +49,6 @@ function validDate(value: unknown): value is string {
 
 function parseInvoice(input: InvoiceInput) {
   if (typeof input.customerId !== "string" || !/^[0-9a-f-]+$/i.test(input.customerId)) return { error: "Choose a customer" } as const;
-  if (typeof input.invoiceNumber !== "string" || input.invoiceNumber.trim().length < 1 || input.invoiceNumber.trim().length > 40) return { error: "Invoice number must be between 1 and 40 characters" } as const;
   if (!validDate(input.issueDate) || !validDate(input.dueDate) || input.dueDate < input.issueDate) return { error: "Enter valid issue and due dates" } as const;
   if (!Number.isSafeInteger(input.taxRateBasisPoints) || Number(input.taxRateBasisPoints) < 0 || Number(input.taxRateBasisPoints) > 10000) return { error: "Invalid tax rate" } as const;
   if (input.notes !== undefined && input.notes !== null && (typeof input.notes !== "string" || input.notes.trim().length > 1000)) return { error: "Notes are too long" } as const;
@@ -71,7 +70,7 @@ function parseInvoice(input: InvoiceInput) {
   const taxMinor = Math.round(subtotalMinor * taxRateBasisPoints / 10000);
   const totalMinor = subtotalMinor + taxMinor;
   if (!Number.isSafeInteger(totalMinor) || totalMinor <= 0 || totalMinor > MAX_AMOUNT_MINOR) return { error: "Invalid invoice total" } as const;
-  return { value: { customerId: input.customerId, invoiceNumber: input.invoiceNumber.trim(), issueDate: input.issueDate, dueDate: input.dueDate, taxRateBasisPoints, notes: typeof input.notes === "string" && input.notes.trim() ? input.notes.trim() : null, items: items as NonNullable<(typeof items)[number]>[], subtotalMinor, taxMinor, totalMinor } } as const;
+  return { value: { customerId: input.customerId, issueDate: input.issueDate, dueDate: input.dueDate, taxRateBasisPoints, notes: typeof input.notes === "string" && input.notes.trim() ? input.notes.trim() : null, items: items as NonNullable<(typeof items)[number]>[], subtotalMinor, taxMinor, totalMinor } } as const;
 }
 
 function token(): string {
@@ -139,15 +138,21 @@ export async function createInvoice(request: Request, db: D1Database): Promise<R
   if (!(await customer(db, user.workspaceId, value.customerId))) return json({ error: "Customer not found" }, 400);
   const id = crypto.randomUUID();
   const now = Math.floor(Date.now() / 1000);
+  const sequence = await db.prepare(
+    `INSERT INTO invoice_sequences (workspace_id, next_number) VALUES (?, 2)
+     ON CONFLICT(workspace_id) DO UPDATE SET next_number = next_number + 1
+     RETURNING next_number - 1 AS number`,
+  ).bind(user.workspaceId).first<{ number: number }>();
+  const invoiceNumber = `INV-${String(sequence?.number ?? 1).padStart(4, "0")}`;
   try {
     await db.batch([
-      db.prepare("INSERT INTO invoices (id, workspace_id, customer_id, invoice_number, issue_date, due_date, subtotal_minor, tax_rate_basis_points, tax_minor, total_minor, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(id, user.workspaceId, value.customerId, value.invoiceNumber, value.issueDate, value.dueDate, value.subtotalMinor, value.taxRateBasisPoints, value.taxMinor, value.totalMinor, value.notes, now, now),
+      db.prepare("INSERT INTO invoices (id, workspace_id, customer_id, invoice_number, issue_date, due_date, subtotal_minor, tax_rate_basis_points, tax_minor, total_minor, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(id, user.workspaceId, value.customerId, invoiceNumber, value.issueDate, value.dueDate, value.subtotalMinor, value.taxRateBasisPoints, value.taxMinor, value.totalMinor, value.notes, now, now),
       ...value.items.map((item, position) => db.prepare("INSERT INTO invoice_items (id, invoice_id, description, quantity_milli, unit_price_minor, amount_minor, position) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(crypto.randomUUID(), id, item.description, item.quantityMilli, item.unitPriceMinor, item.amountMinor, position)),
     ]);
   } catch {
     return json({ error: "Invoice number already exists or invoice data is invalid" }, 409);
   }
-  return json({ id }, 201);
+  return json({ id, invoiceNumber }, 201);
 }
 
 export async function updateInvoice(request: Request, db: D1Database, id: string): Promise<Response> {
@@ -165,7 +170,7 @@ export async function updateInvoice(request: Request, db: D1Database, id: string
   if (!reserved.meta.changes) return json({ error: "Invoice is no longer editable" }, 409);
   try {
     await db.batch([
-      db.prepare("UPDATE invoices SET customer_id = ?, invoice_number = ?, issue_date = ?, due_date = ?, subtotal_minor = ?, tax_rate_basis_points = ?, tax_minor = ?, total_minor = ?, notes = ?, status = 'draft', updated_at = ? WHERE id = ? AND workspace_id = ? AND status = 'editing'").bind(value.customerId, value.invoiceNumber, value.issueDate, value.dueDate, value.subtotalMinor, value.taxRateBasisPoints, value.taxMinor, value.totalMinor, value.notes, now, id, user.workspaceId),
+      db.prepare("UPDATE invoices SET customer_id = ?, issue_date = ?, due_date = ?, subtotal_minor = ?, tax_rate_basis_points = ?, tax_minor = ?, total_minor = ?, notes = ?, status = 'draft', updated_at = ? WHERE id = ? AND workspace_id = ? AND status = 'editing'").bind(value.customerId, value.issueDate, value.dueDate, value.subtotalMinor, value.taxRateBasisPoints, value.taxMinor, value.totalMinor, value.notes, now, id, user.workspaceId),
       db.prepare("DELETE FROM invoice_items WHERE invoice_id = ?").bind(id),
       ...value.items.map((item, position) => db.prepare("INSERT INTO invoice_items (id, invoice_id, description, quantity_milli, unit_price_minor, amount_minor, position) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(crypto.randomUUID(), id, item.description, item.quantityMilli, item.unitPriceMinor, item.amountMinor, position)),
     ]);
