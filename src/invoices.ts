@@ -114,7 +114,7 @@ export async function listInvoices(request: Request, db: D1Database): Promise<Re
     `SELECT invoices.id, invoice_number AS invoiceNumber, issue_date AS issueDate, due_date AS dueDate,
       status, total_minor AS totalMinor, parties.name AS customerName, workspaces.timezone
      FROM invoices JOIN parties ON parties.id = invoices.customer_id JOIN workspaces ON workspaces.id = invoices.workspace_id
-     WHERE invoices.workspace_id = ? ORDER BY created_at DESC`,
+     WHERE invoices.workspace_id = ? ORDER BY invoices.created_at DESC`,
   ).bind(user.workspaceId).all<Record<string, unknown>>();
   return json({ invoices: rows.results.map((invoice) => {
     const today = new Intl.DateTimeFormat("en-CA", { timeZone: String(invoice.timezone), year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
