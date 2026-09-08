@@ -68,6 +68,7 @@ async function renderApp(request: Request, env: Env, preview: boolean): Promise<
     .replaceAll("{{NAME}}", safeText(name))
     .replaceAll("{{WORKSPACE}}", safeText(workspace))
     .replaceAll("{{ACCOUNT_LABEL}}", safeText(accountLabel))
+    .replaceAll("{{PREVIEW}}", String(preview))
     .replaceAll("{{EXIT}}", exit);
   return new Response(html, { headers: { ...PAGE_HEADERS, "content-type": "text/html; charset=utf-8" } });
 }

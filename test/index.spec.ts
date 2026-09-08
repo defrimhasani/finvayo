@@ -95,6 +95,8 @@ describe("Finvayo Worker", () => {
     expect(app.status).toBe(200);
     expect(html).toContain(email);
     expect(html).toContain("days left in trial");
+    expect(html).toContain("Record a transaction");
+    expect(html).toContain('data-preview="false"');
   });
 
   it("signs an existing account in and rejects a wrong password", async () => {
@@ -177,6 +179,52 @@ describe("Finvayo Worker", () => {
     expect(data.currency).toBe("USD");
     expect(data.snapshot.balanceMinor).toBe(125050);
     expect(data.entries).toEqual(expect.arrayContaining([expect.objectContaining({ amountMinor: 240000, status: "paid", actualAmountMinor: 240000 })]));
+  });
+
+  it("records and deletes a paid business expense", async () => {
+    const form = new FormData();
+    form.set("email", `expense-${crypto.randomUUID()}@example.com`);
+    form.set("password", "a-secure-example-password");
+    form.set("terms", "on");
+    const signup = await SELF.fetch("https://finvayo.test/auth/signup", { method: "POST", body: form, redirect: "manual" });
+    const cookie = signup.headers.get("set-cookie")?.split(";")[0] ?? "";
+    const headers = { cookie, origin: "https://finvayo.test", "content-type": "application/json" };
+
+    const created = await SELF.fetch("https://finvayo.test/api/cash-entries", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        direction: "outflow",
+        name: "Accounting software",
+        amountMinor: 4999,
+        actualAmountMinor: 4999,
+        scheduledDate: "2026-09-08",
+        status: "paid",
+        category: "software",
+      }),
+    });
+    expect(created.status).toBe(201);
+    const { id } = (await created.json()) as { id: string };
+
+    const financials = await SELF.fetch("https://finvayo.test/api/financials", { headers: { cookie } });
+    const data = (await financials.json()) as { entries: Array<Record<string, unknown>> };
+    expect(data.entries).toContainEqual(
+      expect.objectContaining({
+        id,
+        direction: "outflow",
+        status: "paid",
+        amountMinor: 4999,
+        actualAmountMinor: 4999,
+        category: "software",
+      }),
+    );
+
+    const removed = await SELF.fetch(`https://finvayo.test/api/cash-entries/${id}`, { method: "DELETE", headers });
+    expect(removed.status).toBe(204);
+    const afterDelete = (await (await SELF.fetch("https://finvayo.test/api/financials", { headers: { cookie } })).json()) as {
+      entries: Array<{ id: string }>;
+    };
+    expect(afterDelete.entries.some((entry) => entry.id === id)).toBe(false);
   });
 
   it("requires authentication and same-origin writes for financial data", async () => {
@@ -270,6 +318,7 @@ describe("Finvayo Worker", () => {
     expect(response.headers.get("cache-control")).toBe("no-store, private");
     expect(html).toContain("Safe to spend now");
     expect(html).toContain("This workspace uses sample data");
+    expect(html).toContain('data-preview="true"');
   });
 
   it("returns a controlled response when a request handler throws", async () => {
