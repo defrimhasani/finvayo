@@ -108,7 +108,7 @@ async function handleSignup(request: Request, env: Env): Promise<Response> {
   try {
     await env.DB.batch([
       env.DB
-        .prepare("INSERT INTO users (id, email, password_hash, password_salt, created_at) VALUES (?, ?, ?, ?, ?)")
+        .prepare("INSERT INTO users (id, email, password_hash, password_salt, password_iterations, created_at) VALUES (?, ?, ?, ?, 100000, ?)")
         .bind(userId, email, passwordRecord.hash, passwordRecord.salt, now),
       env.DB
         .prepare(
@@ -141,11 +141,21 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
   if (!email || typeof password !== "string") return redirect(request, "/login?error=invalid");
 
   const user = await env.DB
-    .prepare("SELECT id, password_hash AS passwordHash, password_salt AS passwordSalt FROM users WHERE email = ?")
+    .prepare(
+      `SELECT id, password_hash AS passwordHash, password_salt AS passwordSalt,
+        password_iterations AS passwordIterations FROM users WHERE email = ?`,
+    )
     .bind(email)
-    .first<{ id: string; passwordHash: string; passwordSalt: string }>();
-  if (!user || !(await verifyPassword(password, user.passwordHash, user.passwordSalt))) {
+    .first<{ id: string; passwordHash: string; passwordSalt: string; passwordIterations: number }>();
+  if (!user || !(await verifyPassword(password, user.passwordHash, user.passwordSalt, user.passwordIterations))) {
     return redirect(request, "/login?error=credentials");
+  }
+  if (user.passwordIterations !== 100_000) {
+    const upgraded = await createPassword(password);
+    await env.DB
+      .prepare("UPDATE users SET password_hash = ?, password_salt = ?, password_iterations = 100000 WHERE id = ?")
+      .bind(upgraded.hash, upgraded.salt, user.id)
+      .run();
   }
   return redirect(request, "/app", sessionCookie(await createSession(env.DB, user.id)));
 }

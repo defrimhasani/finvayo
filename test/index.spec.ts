@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { SELF } from "cloudflare:test";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import worker from "../src/index";
+import { createPassword } from "../src/auth";
 
 async function stripeSignature(body: string, secret: string, timestamp: number): Promise<string> {
   const key = await crypto.subtle.importKey(
@@ -129,6 +130,36 @@ describe("Finvayo Worker", () => {
     expect(valid.headers.get("set-cookie")).toContain("HttpOnly");
     expect(valid.headers.get("set-cookie")).toContain("Secure");
     expect(valid.headers.get("set-cookie")).toContain("SameSite=Lax");
+  });
+
+  it("signs legacy accounts in and upgrades their password hash", async () => {
+    const email = `legacy-${crypto.randomUUID()}@example.com`;
+    const password = "legacy-secure-password";
+    const userId = crypto.randomUUID();
+    const workspaceId = crypto.randomUUID();
+    const now = Math.floor(Date.now() / 1000);
+    const passwordRecord = await createPassword(password, 120_000);
+    await env.DB.batch([
+      env.DB
+        .prepare(
+          "INSERT INTO users (id, email, password_hash, password_salt, password_iterations, created_at) VALUES (?, ?, ?, ?, 120000, ?)",
+        )
+        .bind(userId, email, passwordRecord.hash, passwordRecord.salt, now),
+      env.DB
+        .prepare(
+          "INSERT INTO workspaces (id, owner_user_id, name, currency, timezone, trial_ends_at, created_at) VALUES (?, ?, 'Legacy workspace', 'USD', 'UTC', ?, ?)",
+        )
+        .bind(workspaceId, userId, now + 14 * 86_400, now),
+    ]);
+
+    const form = new FormData();
+    form.set("email", email);
+    form.set("password", password);
+    const response = await SELF.fetch("https://finvayo.test/auth/login", { method: "POST", body: form, redirect: "manual" });
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("https://finvayo.test/app");
+    const upgraded = await env.DB.prepare("SELECT password_iterations AS iterations FROM users WHERE id = ?").bind(userId).first<{ iterations: number }>();
+    expect(upgraded?.iterations).toBe(100_000);
   });
 
   it("sends onboarding email after creating an account", async () => {

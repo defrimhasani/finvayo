@@ -22,12 +22,12 @@ async function digest(value: string): Promise<string> {
   return toBase64(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)));
 }
 
-async function derivePassword(password: string, salt: Uint8Array<ArrayBuffer>): Promise<string> {
+async function derivePassword(password: string, salt: Uint8Array<ArrayBuffer>, iterations: number): Promise<string> {
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, [
     "deriveBits",
   ]);
   const bits = await crypto.subtle.deriveBits(
-    { name: "PBKDF2", hash: "SHA-256", salt, iterations: PBKDF2_ITERATIONS },
+    { name: "PBKDF2", hash: "SHA-256", salt, iterations },
     key,
     256,
   );
@@ -82,13 +82,13 @@ export async function allowAuthAttempt(request: Request, db: D1Database, action:
   return true;
 }
 
-export async function createPassword(password: string): Promise<{ hash: string; salt: string }> {
+export async function createPassword(password: string, iterations = PBKDF2_ITERATIONS): Promise<{ hash: string; salt: string }> {
   const salt = crypto.getRandomValues(new Uint8Array(16));
-  return { hash: await derivePassword(password, salt), salt: toBase64(salt) };
+  return { hash: await derivePassword(password, salt, iterations), salt: toBase64(salt) };
 }
 
-export async function verifyPassword(password: string, expected: string, salt: string): Promise<boolean> {
-  const actual = await derivePassword(password, fromBase64(salt));
+export async function verifyPassword(password: string, expected: string, salt: string, iterations = PBKDF2_ITERATIONS): Promise<boolean> {
+  const actual = await derivePassword(password, fromBase64(salt), iterations);
   if (actual.length !== expected.length) return false;
   let difference = 0;
   for (let index = 0; index < actual.length; index += 1) {

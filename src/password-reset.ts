@@ -88,7 +88,9 @@ export async function resetPassword(request: Request, env: EmailEnv): Promise<Re
     .run();
   if (!consumed.meta.changes) return redirect(request, "/forgot-password?error=expired");
   await env.DB.batch([
-    env.DB.prepare("UPDATE users SET password_hash = ?, password_salt = ? WHERE id = ?").bind(passwordRecord.hash, passwordRecord.salt, record.userId),
+    env.DB
+      .prepare("UPDATE users SET password_hash = ?, password_salt = ?, password_iterations = 100000 WHERE id = ?")
+      .bind(passwordRecord.hash, passwordRecord.salt, record.userId),
     env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(record.userId),
   ]);
   try {
