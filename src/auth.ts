@@ -1,5 +1,5 @@
 const SESSION_SECONDS = 60 * 60 * 24 * 30;
-const PBKDF2_ITERATIONS = 120_000;
+const PBKDF2_ITERATIONS = 100_000;
 
 export type AuthUser = {
   id: string;
