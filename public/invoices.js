@@ -7,7 +7,21 @@ let invoices = [];
 let parties = [];
 let currency = "USD";
 let editingId = null;
-let filter = "all";
+const initialParams = new URLSearchParams(window.location.search);
+const validFilters = new Set(["all", "draft", "sent", "overdue", "paid"]);
+let filter = validFilters.has(initialParams.get("filter")) ? initialParams.get("filter") : "all";
+const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+function scrollToElement(element) {
+  element.scrollIntoView({ behavior: reducedMotion.matches ? "auto" : "smooth", block: "center" });
+}
+
+function setQueryState(key, value, defaultValue) {
+  const url = new URL(window.location.href);
+  if (!value || value === defaultValue) url.searchParams.delete(key);
+  else url.searchParams.set(key, value);
+  window.history.replaceState({}, "", url);
+}
 
 function money(amountMinor) {
   return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(amountMinor / 100);
@@ -79,6 +93,7 @@ function renderList() {
     button.className = "invoice-list-row";
     button.type = "button";
     button.dataset.invoiceId = invoice.id;
+    button.setAttribute("aria-current", String(invoice.id === new URLSearchParams(window.location.search).get("invoice")));
     button.innerHTML = `<span><strong></strong><small></small></span><span class="invoice-status ${invoice.status}"></span><b></b>`;
     button.querySelector("strong").textContent = invoice.invoiceNumber;
     button.querySelector("small").textContent = `${invoice.customerName} · Due ${invoice.dueDate}`;
@@ -98,6 +113,8 @@ async function load() {
   form.elements.customerId.replaceChildren(new Option(parties.length ? "Choose a customer" : "Register a customer first", ""), ...parties.map((party) => new Option(party.name, party.id)));
   renderList();
   calculateTotal();
+  const selectedInvoice = initialParams.get("invoice");
+  if (selectedInvoice && invoices.some((invoice) => invoice.id === selectedInvoice)) await showInvoice(selectedInvoice);
 }
 
 function invoicePayload() {
@@ -125,9 +142,41 @@ async function showInvoice(id) {
   const result = await response.json();
   if (!response.ok) return;
   const invoice = result.invoice;
+  setQueryState("invoice", id);
+  renderList();
   detail.hidden = false;
-  detail.innerHTML = `<div class="section-row"><div><p class="app-kicker">${invoice.status}</p><h2>Invoice ${invoice.invoiceNumber}</h2></div><strong>${money(invoice.totalMinor)}</strong></div><p class="settings-note">${invoice.customerName} · Issued ${invoice.issueDate} · Due ${invoice.dueDate}</p><div class="invoice-detail-items"></div><div class="invoice-editor-total"><span>Total</span><strong>${money(invoice.totalMinor)}</strong></div><div class="invoice-form-actions"></div><p class="transaction-message" role="status"></p>`;
-  const itemList = detail.querySelector(".invoice-detail-items");
+  detail.replaceChildren();
+  const headingRow = document.createElement("div");
+  headingRow.className = "section-row";
+  const headingCopy = document.createElement("div");
+  const status = document.createElement("p");
+  status.className = "app-kicker";
+  status.textContent = invoice.status;
+  const heading = document.createElement("h2");
+  heading.textContent = `Invoice ${invoice.invoiceNumber}`;
+  const headingTotal = document.createElement("strong");
+  headingTotal.textContent = money(invoice.totalMinor);
+  headingCopy.append(status, heading);
+  headingRow.append(headingCopy, headingTotal);
+  const meta = document.createElement("p");
+  meta.className = "settings-note";
+  meta.textContent = `${invoice.customerName} · Issued ${invoice.issueDate} · Due ${invoice.dueDate}`;
+  const itemList = document.createElement("div");
+  itemList.className = "invoice-detail-items";
+  const total = document.createElement("div");
+  total.className = "invoice-editor-total";
+  const totalLabel = document.createElement("span");
+  totalLabel.textContent = "Total";
+  const totalValue = document.createElement("strong");
+  totalValue.textContent = money(invoice.totalMinor);
+  total.append(totalLabel, totalValue);
+  const actions = document.createElement("div");
+  actions.className = "invoice-form-actions";
+  const detailMessage = document.createElement("p");
+  detailMessage.className = "transaction-message";
+  detailMessage.setAttribute("role", "status");
+  detailMessage.setAttribute("aria-live", "polite");
+  detail.append(headingRow, meta, itemList, total, actions, detailMessage);
   for (const item of invoice.items) {
     const row = document.createElement("div");
     row.className = "settings-fact";
@@ -136,7 +185,6 @@ async function showInvoice(id) {
     row.querySelector("strong").textContent = money(item.amountMinor);
     itemList.append(row);
   }
-  const actions = detail.querySelector(".invoice-form-actions");
   if (invoice.status === "draft") {
     actions.append(actionButton("Edit draft", () => editInvoice(invoice), true), actionButton("Send invoice", () => sendInvoice(id)), actionButton("Delete", () => removeInvoice(id), true));
   } else if (invoice.status !== "paid" && invoice.status !== "void") {
@@ -162,7 +210,8 @@ function editInvoice(invoice) {
   invoice.items.forEach(addItem);
   document.querySelector("#invoice-form-title").textContent = `Edit ${invoice.invoiceNumber}`;
   form.querySelector('button[type="submit"]').textContent = "Save changes";
-  form.scrollIntoView({ behavior: "smooth" });
+  scrollToElement(form);
+  form.elements.customerId.focus();
 }
 
 async function sendInvoice(id) {
@@ -184,14 +233,28 @@ async function payInvoice(id) {
 async function removeInvoice(id) {
   if (!window.confirm("Delete this draft invoice?")) return;
   const response = await fetch(`/api/invoices/${id}`, { method: "DELETE" });
-  if (response.ok) { detail.hidden = true; await load(); }
+  if (response.ok) { detail.hidden = true; setQueryState("invoice", ""); await load(); }
 }
 
 list.addEventListener("click", (event) => { const button = event.target.closest("button[data-invoice-id]"); if (button) showInvoice(button.dataset.invoiceId); });
 document.querySelector("#add-invoice-item").addEventListener("click", () => addItem());
 document.querySelector("#cancel-invoice").addEventListener("click", resetForm);
-document.querySelector("#new-invoice").addEventListener("click", () => { resetForm(); form.scrollIntoView({ behavior: "smooth" }); });
-document.querySelectorAll("[data-filter]").forEach((button) => button.addEventListener("click", () => { document.querySelectorAll("[data-filter]").forEach((item) => item.classList.remove("active")); button.classList.add("active"); filter = button.dataset.filter; renderList(); }));
+document.querySelector("#new-invoice").addEventListener("click", () => { resetForm(); scrollToElement(form); form.elements.customerId.focus(); });
+document.querySelectorAll("[data-filter]").forEach((button) => {
+  const selected = button.dataset.filter === filter;
+  button.classList.toggle("active", selected);
+  button.setAttribute("aria-pressed", String(selected));
+  button.addEventListener("click", () => {
+    document.querySelectorAll("[data-filter]").forEach((item) => {
+      const active = item === button;
+      item.classList.toggle("active", active);
+      item.setAttribute("aria-pressed", String(active));
+    });
+    filter = button.dataset.filter;
+    setQueryState("filter", filter, "all");
+    renderList();
+  });
+});
 form.elements.taxRate.addEventListener("input", calculateTotal);
 resetForm();
 load().catch((error) => { message.className = "transaction-message error"; message.textContent = error.message; });

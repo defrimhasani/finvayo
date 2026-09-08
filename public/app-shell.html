@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     {{ROBOTS}}
-    <meta name="theme-color" content="#f3efe5" />
+    <meta name="theme-color" content="#f2efe8" />
     <title>Overview | Finvayo</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/styles.css" />
@@ -48,7 +48,8 @@
 
       <section class="decision-grid" aria-label="Current cash position">
         <article class="safe-card">
-          <div class="card-heading"><span>Safe to spend now</span><button type="button" aria-label="About safe to spend">?</button></div>
+            <div class="card-heading"><h2>Safe to spend now</h2><button type="button" aria-label="About safe to spend" popovertarget="safe-spend-note">?</button></div>
+            <div class="info-popover" id="safe-spend-note" popover>Your current cash minus tax reserves, your minimum buffer, and planned outgoings over the next 90 days.</div>
           <p class="safe-amount" id="safe-amount">$4,280</p>
           <p class="safe-summary" id="safe-summary"><i></i>Your protected cash stays intact for the next 90 days.</p>
           <div class="safe-breakdown">
@@ -88,13 +89,13 @@
               <label><input type="radio" name="timing" value="recorded" checked /><span>Already happened</span></label>
               <label><input type="radio" name="timing" value="planned" /><span>Expected / planned</span></label>
             </fieldset>
-            <label class="transaction-field"><span>Description</span><input name="name" maxlength="120" required placeholder="September retainer" /></label>
+            <label class="transaction-field"><span>Description</span><input name="name" maxlength="120" autocomplete="off" required placeholder="September retainer…" /></label>
             <div class="transaction-fields">
               <label class="transaction-field"><span>Amount</span><input name="amount" inputmode="decimal" required placeholder="0.00" /></label>
               <label class="transaction-field"><span>Date</span><input name="date" type="date" required /></label>
             </div>
             <label class="transaction-field"><span data-party-label>Customer</span><select name="partyId"><option value="">No registered customer</option></select></label>
-            <label class="transaction-field" data-inflow-field><span>Invoice reference</span><input name="invoiceReference" maxlength="80" placeholder="INV-001" /></label>
+            <label class="transaction-field" data-inflow-field><span>Invoice reference</span><input name="invoiceReference" maxlength="80" autocomplete="off" spellcheck="false" placeholder="INV-001…" /></label>
             <label class="transaction-field"><span>Category</span><select name="category" required></select></label>
             <label class="transaction-field" data-planned-field hidden><span>Status</span><select name="status"></select></label>
             <label class="terms-check" data-planned-field hidden><input name="recurring" type="checkbox" /><span>Repeat monthly in the 90-day outlook</span></label>
@@ -117,14 +118,14 @@
         <div class="parties-layout">
           <form class="party-form" id="party-form">
             <div class="transaction-fields">
-              <label class="transaction-field"><span>Name</span><input name="name" maxlength="120" required placeholder="Acme Studio" /></label>
+              <label class="transaction-field"><span>Name</span><input name="name" maxlength="120" autocomplete="organization" required placeholder="Acme Studio…" /></label>
               <label class="transaction-field"><span>Role</span><select name="role"><option value="customer">Customer</option><option value="supplier">Supplier</option><option value="both">Customer &amp; supplier</option></select></label>
             </div>
             <div class="transaction-fields">
-              <label class="transaction-field"><span>Email (optional)</span><input name="email" type="email" maxlength="254" placeholder="accounts@example.com" /></label>
-              <label class="transaction-field"><span>Phone (optional)</span><input name="phone" type="tel" maxlength="40" placeholder="+1 555 0100" /></label>
+              <label class="transaction-field"><span>Email (optional)</span><input name="email" type="email" maxlength="254" autocomplete="email" spellcheck="false" placeholder="accounts@example.com…" /></label>
+              <label class="transaction-field"><span>Phone (optional)</span><input name="phone" type="tel" maxlength="40" autocomplete="tel" placeholder="+1 555 0100…" /></label>
             </div>
-            <label class="transaction-field"><span>Notes (optional)</span><textarea name="notes" maxlength="500" rows="3" placeholder="Payment terms or useful context"></textarea></label>
+            <label class="transaction-field"><span>Notes (optional)</span><textarea name="notes" maxlength="500" rows="3" autocomplete="off" placeholder="Payment terms or useful context…"></textarea></label>
             <button class="button button-primary" type="submit">Register party</button>
             <button class="button button-secondary" id="cancel-party-edit" type="button" hidden>Cancel edit</button>
             <p class="transaction-message" id="party-message" role="status" aria-live="polite"></p>
@@ -189,17 +190,17 @@
         </form>
         <section class="settings-card follow-up-card" id="follow-up">
           <p class="app-kicker">Get paid sooner</p><h2>Invoice follow-up</h2>
-          <label class="transaction-field"><span>Overdue payment</span><select id="follow-up-entry"></select></label>
-          <label class="transaction-field"><span>Tone</span><select id="follow-up-tone"><option value="friendly">Friendly reminder</option><option value="direct">Direct follow-up</option><option value="final">Final notice</option></select></label>
+           <label class="transaction-field"><span>Overdue payment</span><select id="follow-up-entry" name="followUpEntry"></select></label>
+           <label class="transaction-field"><span>Tone</span><select id="follow-up-tone" name="followUpTone"><option value="friendly">Friendly reminder</option><option value="direct">Direct follow-up</option><option value="final">Final notice</option></select></label>
           <button class="button button-secondary" id="generate-follow-up" type="button">Generate message</button>
-          <label class="transaction-field"><span>Message</span><textarea id="follow-up-message" maxlength="2000" rows="6"></textarea></label>
+           <label class="transaction-field"><span>Message</span><textarea id="follow-up-message" name="followUpMessage" maxlength="2000" rows="6"></textarea></label>
           <div class="billing-actions"><button class="button button-secondary" id="copy-follow-up" type="button">Copy message</button><button class="button button-primary" id="complete-follow-up" type="button">Mark sent</button></div>
           <p class="transaction-message" id="follow-up-status" role="status" aria-live="polite"></p>
         </section>
       </section>
     </main>
     <nav class="mobile-bottom-nav" aria-label="Mobile application navigation">
-      <a class="active" href="/app"><span>⌂</span>Overview</a><a href="#parties"><span>◎</span>Parties</a><a href="/app/invoices"><span>▤</span>Invoices</a><a href="#cash-plan"><span>↗</span>Cash plan</a><a href="#scenario"><span>◇</span>Scenarios</a>
+      <a class="active" href="/app" aria-current="page"><span aria-hidden="true">⌂</span>Overview</a><a href="#parties"><span aria-hidden="true">◎</span>Parties</a><a href="/app/invoices"><span aria-hidden="true">▤</span>Invoices</a><a href="#cash-plan"><span aria-hidden="true">↗</span>Cash plan</a><a href="#scenario"><span aria-hidden="true">◇</span>Scenarios</a>
     </nav>
     <script src="/app.js" defer></script>
   </body>

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, noarchive" />
-    <meta name="theme-color" content="#f3efe5" />
+    <meta name="theme-color" content="#f2efe8" />
     <title>Settings | Finvayo</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/styles.css" />
@@ -35,7 +35,7 @@
       <section class="settings-grid">
         <form class="settings-card settings-form" id="settings-form">
           <div><p class="app-kicker">Planning defaults</p><h2>Workspace</h2><p>These values shape how your cash plan is displayed and protected.</p></div>
-          <label class="transaction-field"><span>Workspace name</span><input name="name" maxlength="80" required /></label>
+            <label class="transaction-field"><span>Workspace name</span><input name="name" maxlength="80" autocomplete="organization" required /></label>
           <div class="transaction-fields">
             <label class="transaction-field"><span>Currency</span><select name="currency"><option value="USD">USD — US dollar</option><option value="EUR">EUR — Euro</option><option value="GBP">GBP — British pound</option></select><small id="currency-help"></small></label>
             <label class="transaction-field"><span>Timezone</span><select name="timezone"></select></label>
@@ -73,7 +73,7 @@
           <section class="settings-card danger-card">
             <p class="app-kicker">Danger zone</p><h2>Reset or delete</h2>
             <p class="settings-note">Resetting removes all financial records and review history but keeps your account and parties. Account deletion removes the entire workspace and cannot proceed while a paid subscription is active.</p>
-            <label class="transaction-field"><span>Current password</span><input id="destructive-password" type="password" autocomplete="current-password" /></label>
+            <label class="transaction-field"><span>Current password</span><input id="destructive-password" name="currentPassword" type="password" autocomplete="current-password" /></label>
             <div class="billing-actions"><button class="button button-secondary" id="reset-plan" type="button">Reset financial plan</button><button class="button danger-button" id="delete-account" type="button">Delete account</button></div>
             <p class="transaction-message" id="data-message" role="status" aria-live="polite"></p>
           </section>
@@ -81,7 +81,7 @@
       </section>
     </main>
     <nav class="mobile-bottom-nav settings-mobile-nav" aria-label="Mobile application navigation">
-      <a href="/app"><span>⌂</span>Overview</a><a href="/app#parties"><span>◎</span>Parties</a><a class="active" href="/app/settings"><span>⚙</span>Settings</a>
+      <a href="/app"><span aria-hidden="true">⌂</span>Overview</a><a href="/app#parties"><span aria-hidden="true">◎</span>Parties</a><a class="active" href="/app/settings" aria-current="page"><span aria-hidden="true">⚙</span>Settings</a>
     </nav>
     <script src="/settings.js" defer></script>
   </body>

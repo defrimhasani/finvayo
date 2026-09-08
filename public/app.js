@@ -31,6 +31,8 @@ if (form && page.dataset.preview !== "true") {
   let editingEntry = null;
   let editingPartyId = null;
   let currentScenario = null;
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const scrollToForm = (target) => target.scrollIntoView({ behavior: reducedMotion.matches ? "auto" : "smooth", block: "center" });
   const categories = {
     inflow: [
       ["service_income", "Service income"], ["product_sales", "Product sales"], ["retainer_income", "Retainer income"],
@@ -215,6 +217,7 @@ if (form && page.dataset.preview !== "true") {
       row.className = "ledger-row";
       const days = dayDifference(entry.date, overview.horizonStart);
       const timing = document.createElement("time");
+      timing.dateTime = entry.date;
       timing.innerHTML = `<strong>${days === 0 ? "Now" : `+${days}`}</strong><span>${days === 0 ? "" : "days"}</span>`;
       const details = document.createElement("div");
       const name = document.createElement("strong");
@@ -443,7 +446,8 @@ if (form && page.dataset.preview !== "true") {
       form.elements.recurring.checked = entry.recurrence === "monthly";
       document.querySelector("#cancel-entry-edit").hidden = false;
       submit.textContent = "Save transaction";
-      form.scrollIntoView({ behavior: "smooth", block: "center" });
+       scrollToForm(form);
+       form.elements.name.focus();
       return;
     }
     const button = action.closest("button[data-id]");
@@ -519,7 +523,8 @@ if (form && page.dataset.preview !== "true") {
     form.elements.amount.value = (currentScenario.amountMinor / 100).toFixed(2);
     form.elements.date.value = currentScenario.date;
     form.elements.category.value = "equipment";
-    form.scrollIntoView({ behavior: "smooth", block: "center" });
+     scrollToForm(form);
+     form.elements.name.focus();
     message.textContent = "Scenario copied into the transaction form. Review and add it to your plan.";
   });
 
@@ -616,7 +621,8 @@ if (form && page.dataset.preview !== "true") {
       partyForm.elements.notes.value = party.notes || "";
       partyForm.querySelector('button[type="submit"]').textContent = "Save party";
       document.querySelector("#cancel-party-edit").hidden = false;
-      partyForm.scrollIntoView({ behavior: "smooth", block: "center" });
+       scrollToForm(partyForm);
+       partyForm.elements.name.focus();
       return;
     }
     const button = event.target.closest("button[data-party-id]");
