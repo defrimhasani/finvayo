@@ -13,6 +13,7 @@ import {
 } from "./auth";
 import { createCashEntry, createCashSnapshot, deleteCashEntry, getFinancials, updateCashEntry } from "./financials";
 import { createParty, deleteParty, getParties } from "./parties";
+import { getSettings, updateSettings } from "./settings";
 import { billingStatus, createCheckout, createPortal, handleStripeWebhook, type StripeEnv } from "./stripe";
 
 const JSON_HEADERS = {
@@ -71,6 +72,16 @@ async function renderApp(request: Request, env: Env, preview: boolean): Promise<
     .replaceAll("{{ACCOUNT_LABEL}}", safeText(accountLabel))
     .replaceAll("{{PREVIEW}}", String(preview))
     .replaceAll("{{EXIT}}", exit);
+  return new Response(html, { headers: { ...PAGE_HEADERS, "content-type": "text/html; charset=utf-8" } });
+}
+
+async function renderSettings(request: Request, env: Env): Promise<Response> {
+  const user = await currentUser(request, env.DB);
+  if (!user) return redirect(request, "/login?next=/app/settings");
+  const template = await (await env.ASSETS.fetch(new URL("/settings.html", request.url))).text();
+  const html = template
+    .replaceAll("{{WORKSPACE}}", safeText(user.workspaceName))
+    .replaceAll("{{ACCOUNT_LABEL}}", safeText(user.email));
   return new Response(html, { headers: { ...PAGE_HEADERS, "content-type": "text/html; charset=utf-8" } });
 }
 
@@ -177,6 +188,8 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
   if (url.pathname === "/api/parties" && request.method === "POST") return createParty(request, env.DB);
   const partyMatch = url.pathname.match(/^\/api\/parties\/([0-9a-f-]+)$/i);
   if (partyMatch && request.method === "DELETE") return deleteParty(request, env.DB, partyMatch[1]);
+  if (url.pathname === "/api/settings" && request.method === "GET") return getSettings(request, env.DB);
+  if (url.pathname === "/api/settings" && request.method === "PATCH") return updateSettings(request, env.DB);
   if (url.pathname === "/api/billing" && request.method === "GET") return billingStatus(request, env as StripeEnv);
   if (url.pathname === "/api/billing/checkout" && request.method === "POST") return createCheckout(request, env as StripeEnv);
   if (url.pathname === "/api/billing/portal" && request.method === "POST") return createPortal(request, env as StripeEnv);
@@ -193,7 +206,11 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
     return renderApp(request, env, true);
   }
 
-  if (url.pathname === "/app-shell.html") {
+  if (url.pathname === "/app/settings" || url.pathname === "/app/settings/") {
+    return renderSettings(request, env);
+  }
+
+  if (url.pathname === "/app-shell.html" || url.pathname === "/settings.html") {
     return new Response("Not found", { status: 404, headers: PAGE_HEADERS });
   }
 

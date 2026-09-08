@@ -131,8 +131,8 @@ export async function createCheckout(request: Request, env: StripeEnv): Promise<
         customer: customerId,
         "line_items[0][price]": priceId,
         "line_items[0][quantity]": "1",
-        success_url: `${origin}/app?billing=confirming`,
-        cancel_url: `${origin}/app?billing=canceled`,
+        success_url: `${origin}/app/settings?billing=confirming`,
+        cancel_url: `${origin}/app/settings?billing=canceled`,
         client_reference_id: user.workspaceId,
         "metadata[workspace_id]": user.workspaceId,
         "subscription_data[metadata][workspace_id]": user.workspaceId,
@@ -166,7 +166,7 @@ export async function createPortal(request: Request, env: StripeEnv): Promise<Re
   if (!subscription?.stripeCustomerId) return json({ error: "No billing account exists" }, 409);
   const session = await stripePost(env, "billing_portal/sessions", {
     customer: subscription.stripeCustomerId,
-    return_url: `${new URL(request.url).origin}/app`,
+    return_url: `${new URL(request.url).origin}/app/settings`,
   });
   if (typeof session.url !== "string") throw new Error("Stripe Portal did not return a URL");
   return json({ url: session.url }, 201);

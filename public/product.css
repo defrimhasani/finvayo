@@ -677,6 +677,112 @@
   text-transform: uppercase;
 }
 
+.settings-main {
+  max-width: 1280px;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(300px, 0.8fr);
+  align-items: start;
+  gap: 1rem;
+}
+
+.settings-card {
+  padding: clamp(1.5rem, 3vw, 2.5rem);
+  border: 1px solid var(--line);
+  background: var(--paper-light);
+}
+
+.settings-card h2 {
+  margin: 0;
+  font-size: 1.4rem;
+  letter-spacing: -0.045em;
+}
+
+.settings-card > div:first-child > p:last-child,
+.settings-note {
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.6;
+}
+
+.settings-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.settings-form .button {
+  width: 100%;
+  margin-top: 0.5rem;
+  cursor: pointer;
+}
+
+.settings-form .button:disabled,
+.billing-actions .button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.transaction-field > small {
+  display: block;
+  min-height: 1rem;
+  margin-top: 0.4rem;
+  color: var(--muted);
+  font-size: 0.57rem;
+  line-height: 1.4;
+}
+
+.settings-stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.settings-fact {
+  display: flex;
+  margin-top: 1.5rem;
+  padding: 1rem 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.7rem;
+}
+
+.settings-fact span {
+  color: var(--muted);
+}
+
+.settings-fact strong {
+  text-align: right;
+}
+
+.billing-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.billing-actions .button {
+  min-height: 46px;
+  padding-inline: 0.8rem;
+  cursor: pointer;
+}
+
+.billing-actions .button:only-child {
+  grid-column: 1 / -1;
+}
+
+.button-secondary {
+  border: 1px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+}
+
+.settings-mobile-nav {
+  grid-template-columns: repeat(3, 1fr) !important;
+}
+
 .transaction-row {
   display: grid;
   padding: 1rem 0;
@@ -1138,6 +1244,10 @@
   .lower-grid,
   .transactions-layout,
   .parties-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-grid {
     grid-template-columns: 1fr;
   }
 

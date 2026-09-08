@@ -344,6 +344,79 @@ describe("Finvayo Worker", () => {
     );
   });
 
+  it("updates workspace settings and locks currency after financial activity", async () => {
+    const form = new FormData();
+    const email = `settings-${crypto.randomUUID()}@example.com`;
+    form.set("email", email);
+    form.set("password", "a-secure-example-password");
+    form.set("terms", "on");
+    const signup = await SELF.fetch("https://finvayo.test/auth/signup", { method: "POST", body: form, redirect: "manual" });
+    const cookie = signup.headers.get("set-cookie")?.split(";")[0] ?? "";
+    const headers = { cookie, origin: "https://finvayo.test", "content-type": "application/json" };
+
+    const page = await SELF.fetch("https://finvayo.test/app/settings", { headers: { cookie } });
+    expect(page.status).toBe(200);
+    expect(page.headers.get("cache-control")).toBe("no-store, private");
+    expect(await page.text()).toContain("Workspace controls");
+
+    const updated = await SELF.fetch("https://finvayo.test/api/settings", {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({
+        name: "Consulting HQ",
+        currency: "EUR",
+        timezone: "Europe/Tirane",
+        minimumBufferMinor: 150000,
+        taxReserveMinor: 42000,
+      }),
+    });
+    expect(updated.status).toBe(200);
+    const settings = await SELF.fetch("https://finvayo.test/api/settings", { headers: { cookie } });
+    await expect(settings.json()).resolves.toEqual({
+      settings: expect.objectContaining({
+        name: "Consulting HQ",
+        email,
+        currency: "EUR",
+        timezone: "Europe/Tirane",
+        minimumBufferMinor: 150000,
+        taxReserveMinor: 42000,
+        currencyLocked: 0,
+      }),
+    });
+
+    await SELF.fetch("https://finvayo.test/api/cash-snapshots", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ balanceMinor: 500000, effectiveDate: "2026-09-08" }),
+    });
+    const locked = await SELF.fetch("https://finvayo.test/api/settings", {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({
+        name: "Consulting HQ",
+        currency: "GBP",
+        timezone: "Europe/London",
+        minimumBufferMinor: 150000,
+        taxReserveMinor: 42000,
+      }),
+    });
+    expect(locked.status).toBe(409);
+    await expect(locked.json()).resolves.toEqual({ error: "Currency cannot change after financial records exist" });
+  });
+
+  it("protects settings routes with authentication and same-origin checks", async () => {
+    const page = await SELF.fetch("https://finvayo.test/app/settings", { redirect: "manual" });
+    expect(page.status).toBe(303);
+    expect(page.headers.get("location")).toBe("https://finvayo.test/login?next=/app/settings");
+    expect((await SELF.fetch("https://finvayo.test/api/settings")).status).toBe(401);
+    const forbidden = await SELF.fetch("https://finvayo.test/api/settings", {
+      method: "PATCH",
+      headers: { origin: "https://attacker.example", "content-type": "application/json" },
+      body: "{}",
+    });
+    expect(forbidden.status).toBe(403);
+  });
+
   it("requires authentication and same-origin writes for financial data", async () => {
     const unauthorized = await SELF.fetch("https://finvayo.test/api/financials");
     expect(unauthorized.status).toBe(401);
