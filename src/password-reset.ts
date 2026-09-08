@@ -27,9 +27,9 @@ async function hashToken(token: string): Promise<string> {
 }
 
 export async function requestPasswordReset(request: Request, env: EmailEnv): Promise<Response> {
-  if (!(await allowAuthAttempt(request, env.DB, "forgot-password"))) return redirect(request, "/forgot-password?sent=1");
   const form = await request.formData();
   const email = normalizeEmail(form.get("email"));
+  if (!(await allowAuthAttempt(request, env.DB, `forgot-password:${email ?? "invalid"}`))) return redirect(request, "/forgot-password?sent=1");
   if (email) {
     const user = await env.DB.prepare("SELECT id FROM users WHERE email = ?").bind(email).first<{ id: string }>();
     if (user) {

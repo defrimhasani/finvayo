@@ -95,7 +95,10 @@
             <label class="transaction-field"><span data-party-label>Customer</span><select name="partyId"><option value="">No registered customer</option></select></label>
             <label class="transaction-field" data-inflow-field><span>Invoice reference</span><input name="invoiceReference" maxlength="80" placeholder="INV-001" /></label>
             <label class="transaction-field"><span>Category</span><select name="category" required></select></label>
+            <label class="transaction-field" data-planned-field hidden><span>Status</span><select name="status"></select></label>
+            <label class="terms-check" data-planned-field hidden><input name="recurring" type="checkbox" /><span>Repeat monthly in the 90-day outlook</span></label>
             <button class="button button-primary" type="submit">Record payment</button>
+            <button class="button button-secondary" id="cancel-entry-edit" type="button" hidden>Cancel edit</button>
             <p class="transaction-message" id="transaction-message" role="status" aria-live="polite"></p>
           </form>
           <div class="transaction-history">
@@ -120,7 +123,9 @@
               <label class="transaction-field"><span>Email (optional)</span><input name="email" type="email" maxlength="254" placeholder="accounts@example.com" /></label>
               <label class="transaction-field"><span>Phone (optional)</span><input name="phone" type="tel" maxlength="40" placeholder="+1 555 0100" /></label>
             </div>
+            <label class="transaction-field"><span>Notes (optional)</span><textarea name="notes" maxlength="500" rows="3" placeholder="Payment terms or useful context"></textarea></label>
             <button class="button button-primary" type="submit">Register party</button>
+            <button class="button button-secondary" id="cancel-party-edit" type="button" hidden>Cancel edit</button>
             <p class="transaction-message" id="party-message" role="status" aria-live="polite"></p>
           </form>
           <div class="party-directory">
@@ -142,6 +147,7 @@
             <svg viewBox="0 0 900 250" preserveAspectRatio="none" aria-hidden="true">
               <path class="app-area" id="chart-area" d="M0 54H95V80H210V36H315V104H410V82H520V150H635V122H760V75H900V94V250H0Z" />
               <path class="app-line" id="chart-line" d="M0 54H95V80H210V36H315V104H410V82H520V150H635V122H760V75H900V94" />
+              <path class="reserve-line" id="reserve-line" d="M0 190H900" />
             </svg>
             <div class="plot-dates"><span>Today</span><span>30 days</span><span>60 days</span><span>90 days</span></div>
           </div>
@@ -163,9 +169,32 @@
               <label class="transaction-field"><span>Payment date</span><input name="date" type="date" required /></label>
             </div>
             <button class="button button-primary" type="submit">Run scenario</button>
+            <button class="button button-secondary" id="save-scenario" type="button" hidden>Add to plan</button>
           </form>
           <small id="scenario-result" role="status" aria-live="polite">Uses your current 90-day outlook and does not save anything.</small>
         </article>
+      </section>
+      <section class="workflow-grid" id="weekly-review">
+        <form class="settings-card review-form" id="review-form">
+          <p class="app-kicker">Five-minute routine</p><h2>Weekly review</h2>
+          <p class="settings-note" id="last-review">No review completed yet.</p>
+          <label class="terms-check"><input name="step" value="cash" type="checkbox" /><span>Confirm current cash balance</span></label>
+          <label class="terms-check"><input name="step" value="income" type="checkbox" /><span>Mark received payments</span></label>
+          <label class="terms-check"><input name="step" value="expenses" type="checkbox" /><span>Mark paid obligations</span></label>
+          <label class="terms-check"><input name="step" value="overdue" type="checkbox" /><span>Review overdue income</span></label>
+          <label class="terms-check"><input name="step" value="outlook" type="checkbox" /><span>Review the next 30 days</span></label>
+          <button class="button button-primary" type="submit">Complete weekly review</button>
+          <p class="transaction-message" id="review-message" role="status" aria-live="polite"></p>
+        </form>
+        <section class="settings-card follow-up-card" id="follow-up">
+          <p class="app-kicker">Get paid sooner</p><h2>Invoice follow-up</h2>
+          <label class="transaction-field"><span>Overdue payment</span><select id="follow-up-entry"></select></label>
+          <label class="transaction-field"><span>Tone</span><select id="follow-up-tone"><option value="friendly">Friendly reminder</option><option value="direct">Direct follow-up</option><option value="final">Final notice</option></select></label>
+          <button class="button button-secondary" id="generate-follow-up" type="button">Generate message</button>
+          <label class="transaction-field"><span>Message</span><textarea id="follow-up-message" maxlength="2000" rows="6"></textarea></label>
+          <div class="billing-actions"><button class="button button-secondary" id="copy-follow-up" type="button">Copy message</button><button class="button button-primary" id="complete-follow-up" type="button">Mark sent</button></div>
+          <p class="transaction-message" id="follow-up-status" role="status" aria-live="polite"></p>
+        </section>
       </section>
     </main>
     <nav class="mobile-bottom-nav" aria-label="Mobile application navigation">

@@ -64,6 +64,8 @@ type CashEntryInput = {
   included?: unknown;
   actualAmountMinor?: unknown;
   partyId?: unknown;
+  actualDate?: unknown;
+  completedAt?: unknown;
 };
 
 type FinancialEntry = {
@@ -80,6 +82,8 @@ type FinancialEntry = {
   clientName: string | null;
   invoiceReference: string | null;
   category: string | null;
+  actualDate?: string | null;
+  storedStatus?: string;
 };
 
 type CashSnapshot = { id: string; balanceMinor: number; effectiveDate: string; confirmedAt: number };
@@ -104,13 +108,16 @@ function buildOverview(
   entries: FinancialEntry[],
   minimumBufferMinor: number,
   taxReserveMinor: number,
+  taxReserveMode: string,
+  taxRateBasisPoints: number,
+  paymentDelayDays: number,
 ) {
   if (!snapshot) return null;
   const horizonEnd = addDays(snapshot.effectiveDate, 90);
   const events: Array<{ id: string; name: string; direction: "inflow" | "outflow"; amountMinor: number; date: string; status: string; partyName: string | null; invoiceReference: string | null; category: string | null }> = [];
 
   for (const entry of entries) {
-    const projectedInflow = entry.direction === "inflow" && (entry.status === "expected" || entry.status === "invoiced");
+    const projectedInflow = entry.direction === "inflow" && (entry.storedStatus === "expected" || entry.storedStatus === "invoiced");
     const projectedOutflow = entry.direction === "outflow" && entry.status === "planned";
     if (!entry.included || (!projectedInflow && !projectedOutflow)) continue;
     let occurrence = 0;
@@ -126,13 +133,15 @@ function buildOverview(
       }
     }
     while (date < horizonEnd) {
-      if (date >= snapshot.effectiveDate) {
+      const projectedDate = entry.direction === "inflow" ? addDays(date, paymentDelayDays) : date;
+      if (projectedDate >= snapshot.effectiveDate) {
+        if (projectedDate >= horizonEnd) break;
         events.push({
           id: entry.id,
           name: entry.name,
           direction: entry.direction,
           amountMinor: entry.amountMinor,
-          date,
+          date: projectedDate,
           status: entry.status,
           partyName: entry.partyName || entry.clientName,
           invoiceReference: entry.invoiceReference,
@@ -146,22 +155,29 @@ function buildOverview(
   }
 
   events.sort((first, second) => first.date.localeCompare(second.date) || first.id.localeCompare(second.id));
-  const protectedMinor = minimumBufferMinor + taxReserveMinor;
+  const initialProtectedMinor = minimumBufferMinor + taxReserveMinor;
+  let requiredTaxMinor = taxReserveMinor;
   let balanceMinor = snapshot.balanceMinor;
   let lowestBalanceMinor = balanceMinor;
-  let lowestHeadroomMinor = balanceMinor - protectedMinor;
+  let lowestHeadroomMinor = balanceMinor - initialProtectedMinor;
   let limitingDate = snapshot.effectiveDate;
-  let firstBreachDate: string | null = balanceMinor < protectedMinor ? snapshot.effectiveDate : null;
+  let firstBreachDate: string | null = balanceMinor < initialProtectedMinor ? snapshot.effectiveDate : null;
   let firstNegativeDate: string | null = balanceMinor < 0 ? snapshot.effectiveDate : null;
-  const points = [{ date: snapshot.effectiveDate, balanceMinor }];
+  const points: Array<{ date: string; balanceMinor: number; protectedMinor: number }> = [
+    { date: snapshot.effectiveDate, balanceMinor, protectedMinor: initialProtectedMinor },
+  ];
   for (let index = 0; index < events.length; ) {
     const date = events[index].date;
     let dailyChangeMinor = 0;
+    let dailyTaxMinor = 0;
     while (index < events.length && events[index].date === date) {
       dailyChangeMinor += events[index].direction === "inflow" ? events[index].amountMinor : -events[index].amountMinor;
+      if (taxReserveMode === "percentage" && events[index].direction === "inflow") dailyTaxMinor += Math.round(events[index].amountMinor * taxRateBasisPoints / 10000);
       index += 1;
     }
     balanceMinor += dailyChangeMinor;
+    requiredTaxMinor += dailyTaxMinor;
+    const protectedMinor = minimumBufferMinor + requiredTaxMinor;
     const headroom = balanceMinor - protectedMinor;
     if (balanceMinor < lowestBalanceMinor) lowestBalanceMinor = balanceMinor;
     if (headroom < lowestHeadroomMinor) {
@@ -170,7 +186,7 @@ function buildOverview(
     }
     if (!firstBreachDate && headroom < 0) firstBreachDate = date;
     if (!firstNegativeDate && balanceMinor < 0) firstNegativeDate = date;
-    points.push({ date, balanceMinor });
+    points.push({ date, balanceMinor, protectedMinor });
   }
 
   const overdue = entries
@@ -187,8 +203,11 @@ function buildOverview(
     safeToSpendMinor: Math.max(0, lowestHeadroomMinor),
     currentCashMinor: snapshot.balanceMinor,
     minimumBufferMinor,
-    taxReserveMinor,
-    protectedMinor,
+    taxReserveMinor: requiredTaxMinor,
+    taxReserveMode,
+    taxRateBasisPoints,
+    paymentDelayDays,
+    protectedMinor: minimumBufferMinor + requiredTaxMinor,
     lowestBalanceMinor,
     lowestHeadroomMinor,
     limitingDate,
@@ -250,10 +269,11 @@ export async function getFinancials(request: Request, db: D1Database): Promise<R
     db
       .prepare(
         `SELECT currency, timezone, minimum_buffer_minor AS minimumBufferMinor,
-          tax_reserve_minor AS taxReserveMinor FROM workspaces WHERE id = ?`,
+          tax_reserve_minor AS taxReserveMinor, tax_reserve_mode AS taxReserveMode,
+          tax_rate_basis_points AS taxRateBasisPoints, payment_delay_days AS paymentDelayDays FROM workspaces WHERE id = ?`,
       )
       .bind(user.workspaceId)
-      .first<{ currency: string; timezone: string; minimumBufferMinor: number; taxReserveMinor: number }>(),
+      .first<{ currency: string; timezone: string; minimumBufferMinor: number; taxReserveMinor: number; taxReserveMode: string; taxRateBasisPoints: number; paymentDelayDays: number }>(),
     db
       .prepare(
         `SELECT id, balance_minor AS balanceMinor, effective_date AS effectiveDate, confirmed_at AS confirmedAt
@@ -267,7 +287,7 @@ export async function getFinancials(request: Request, db: D1Database): Promise<R
         `SELECT id, direction, name, amount_minor AS amountMinor, scheduled_date AS scheduledDate,
           status, client_name AS clientName, invoice_reference AS invoiceReference,
           COALESCE(transaction_category, category) AS category,
-          recurrence, included, actual_amount_minor AS actualAmountMinor, completed_at AS completedAt,
+          recurrence, included, actual_amount_minor AS actualAmountMinor, actual_date AS actualDate, completed_at AS completedAt,
           party_id AS partyId, party_name AS partyName,
           created_at AS createdAt, updated_at AS updatedAt
          FROM cash_entries WHERE workspace_id = ? ORDER BY scheduled_date, created_at`,
@@ -276,10 +296,18 @@ export async function getFinancials(request: Request, db: D1Database): Promise<R
       .all<FinancialEntry>(),
   ]);
 
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: workspace?.timezone ?? "UTC", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const normalizedEntries = entries.results.map((entry) => ({
+    ...entry,
+    storedStatus: entry.status,
+    status: entry.direction === "inflow" && (entry.status === "expected" || entry.status === "invoiced") && addDays(entry.scheduledDate, workspace?.paymentDelayDays ?? 0) < today
+      ? "overdue"
+      : entry.status,
+  }));
   const overview = workspace
-    ? buildOverview(snapshot ?? null, entries.results, workspace.minimumBufferMinor, workspace.taxReserveMinor)
+    ? buildOverview(snapshot ?? null, normalizedEntries, workspace.minimumBufferMinor, workspace.taxReserveMinor, workspace.taxReserveMode, workspace.taxRateBasisPoints, workspace.paymentDelayDays)
     : null;
-  return json({ currency: workspace?.currency, timezone: workspace?.timezone, snapshot: snapshot ?? null, entries: entries.results, overview });
+  return json({ currency: workspace?.currency, timezone: workspace?.timezone, snapshot: snapshot ?? null, entries: normalizedEntries, overview });
 }
 
 export async function createCashSnapshot(request: Request, db: D1Database): Promise<Response> {
@@ -315,6 +343,7 @@ function validateEntry(input: CashEntryInput): string | null {
   if (input.recurrence !== undefined && input.recurrence !== null && input.recurrence !== "monthly") return "Invalid recurrence";
   if (input.included !== undefined && typeof input.included !== "boolean") return "Invalid inclusion setting";
   if (input.status === "paid" && !validAmount(input.actualAmountMinor)) return "Paid entries require an actual amount";
+  if (input.status === "paid" && input.actualDate !== undefined && input.actualDate !== null && !validDate(input.actualDate)) return "Invalid actual date";
   if (input.partyId !== undefined && input.partyId !== null && typeof input.partyId !== "string") return "Invalid party";
   return null;
 }
@@ -344,9 +373,9 @@ export async function createCashEntry(request: Request, db: D1Database): Promise
     .prepare(
       `INSERT INTO cash_entries
        (id, workspace_id, direction, name, amount_minor, scheduled_date, status, client_name,
-         invoice_reference, category, transaction_category, recurrence, included, actual_amount_minor, completed_at,
+         invoice_reference, category, transaction_category, recurrence, included, actual_amount_minor, actual_date, completed_at,
          party_id, party_name, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       id,
@@ -363,6 +392,7 @@ export async function createCashEntry(request: Request, db: D1Database): Promise
       input.recurrence ?? null,
       input.included === false ? 0 : 1,
       paid ? input.actualAmountMinor : null,
+      paid ? (input.actualDate ?? input.scheduledDate) : null,
       paid ? now : null,
       party?.id ?? null,
       party?.name ?? null,
@@ -378,39 +408,88 @@ export async function updateCashEntry(request: Request, db: D1Database, id: stri
   if (!user) return json({ error: "Unauthorized" }, 401);
   const input = await jsonObject(request);
   if (!input) return json({ error: "Invalid JSON body" }, 400);
-  if (input.included !== undefined && typeof input.included !== "boolean") return json({ error: "Invalid inclusion setting" }, 400);
-  if (input.status !== undefined && input.status !== "paid") return json({ error: "Only paid status updates are supported" }, 400);
-  if (input.status === "paid" && !validAmount(input.actualAmountMinor)) return json({ error: "Paid entries require an actual amount" }, 400);
-  if (input.status === undefined && input.included === undefined) return json({ error: "No changes supplied" }, 400);
-
   const existing = await db
-    .prepare("SELECT id FROM cash_entries WHERE id = ? AND workspace_id = ?")
+    .prepare(
+      `SELECT id, direction, name, amount_minor AS amountMinor, scheduled_date AS scheduledDate, status,
+        client_name AS clientName, invoice_reference AS invoiceReference, COALESCE(transaction_category, category) AS category,
+        recurrence, included, actual_amount_minor AS actualAmountMinor, actual_date AS actualDate,
+        completed_at AS completedAt, party_id AS partyId
+       FROM cash_entries WHERE id = ? AND workspace_id = ?`,
+    )
     .bind(id, user.workspaceId)
-    .first();
+    .first<CashEntryInput & { direction: "inflow" | "outflow" }>();
   if (!existing) return json({ error: "Not found" }, 404);
 
+  const merged: CashEntryInput = {
+    direction: input.direction ?? existing.direction,
+    name: input.name ?? existing.name,
+    amountMinor: input.amountMinor ?? existing.amountMinor,
+    scheduledDate: input.scheduledDate ?? existing.scheduledDate,
+    status: input.status ?? existing.status,
+    clientName: input.clientName ?? existing.clientName,
+    invoiceReference: input.invoiceReference ?? existing.invoiceReference,
+    category: input.category ?? existing.category,
+    recurrence: input.recurrence === undefined ? existing.recurrence : input.recurrence,
+    included: input.included === undefined ? Boolean(existing.included) : input.included,
+    actualAmountMinor: input.actualAmountMinor ?? existing.actualAmountMinor,
+    actualDate: input.actualDate ?? existing.actualDate,
+    partyId: input.partyId === undefined ? existing.partyId : input.partyId,
+  };
+  const error = validateEntry(merged);
+  if (error) return json({ error }, 400);
+
+  let party: { id: string; name: string; role: string } | null = null;
+  if (merged.partyId) {
+    party = await db.prepare("SELECT id, name, role FROM parties WHERE id = ? AND workspace_id = ?").bind(merged.partyId, user.workspaceId).first<{ id: string; name: string; role: string }>();
+    if (!party) return json({ error: "Party not found" }, 400);
+    const requiredRole = merged.direction === "inflow" ? "customer" : "supplier";
+    if (party.role !== requiredRole && party.role !== "both") return json({ error: `Party must be a ${requiredRole}` }, 400);
+  }
+
   const now = Math.floor(Date.now() / 1000);
-  await db
-    .prepare(
+  const update = db.prepare(
       `UPDATE cash_entries SET
-        status = COALESCE(?, status),
-        actual_amount_minor = CASE WHEN ? = 'paid' THEN ? ELSE actual_amount_minor END,
-        completed_at = CASE WHEN ? = 'paid' THEN ? ELSE completed_at END,
-        included = COALESCE(?, included), updated_at = ?
+        direction = ?, name = ?, amount_minor = ?, scheduled_date = ?, status = ?, client_name = ?,
+        invoice_reference = ?, transaction_category = ?, recurrence = ?, included = ?,
+        actual_amount_minor = ?, actual_date = ?, completed_at = ?, party_id = ?, party_name = ?, updated_at = ?
        WHERE id = ? AND workspace_id = ?`,
-    )
-    .bind(
-      input.status ?? null,
-      input.status ?? null,
-      input.actualAmountMinor ?? null,
-      input.status ?? null,
-      now,
-      input.included === undefined ? null : input.included ? 1 : 0,
+    ).bind(
+      merged.direction,
+      String(merged.name).trim(),
+      merged.amountMinor,
+      merged.scheduledDate,
+      merged.status,
+      optionalText(merged.clientName, 120) ?? null,
+      optionalText(merged.invoiceReference, 80) ?? null,
+      merged.category ?? null,
+      merged.recurrence ?? null,
+      merged.included === false ? 0 : 1,
+      merged.status === "paid" ? merged.actualAmountMinor : null,
+      merged.status === "paid" ? (merged.actualDate ?? merged.scheduledDate) : null,
+      merged.status === "paid" ? (existing.completedAt ?? now) : null,
+      party?.id ?? null,
+      party?.name ?? null,
       now,
       id,
       user.workspaceId,
-    )
-    .run();
+    );
+  if (merged.status === "paid" && existing.status !== "paid" && merged.recurrence === "monthly") {
+    const nextId = crypto.randomUUID();
+    const nextDate = addMonths(String(merged.scheduledDate), 1);
+    await db.batch([
+      update,
+      db.prepare(
+        `INSERT INTO cash_entries
+         (id, workspace_id, direction, name, amount_minor, scheduled_date, status, client_name,
+          invoice_reference, category, transaction_category, recurrence, included, party_id, party_name, created_at, updated_at)
+         SELECT ?, workspace_id, direction, name, amount_minor, ?, ?, client_name,
+          invoice_reference, NULL, COALESCE(transaction_category, category), recurrence, included, party_id, party_name, ?, ?
+         FROM cash_entries WHERE id = ? AND workspace_id = ?`,
+      ).bind(nextId, nextDate, existing.direction === "inflow" ? (existing.status === "invoiced" ? "invoiced" : "expected") : "planned", now, now, id, user.workspaceId),
+    ]);
+  } else {
+    await update.run();
+  }
   return json({ id });
 }
 
@@ -419,4 +498,33 @@ export async function deleteCashEntry(request: Request, db: D1Database, id: stri
   if (!user) return json({ error: "Unauthorized" }, 401);
   const result = await db.prepare("DELETE FROM cash_entries WHERE id = ? AND workspace_id = ?").bind(id, user.workspaceId).run();
   return result.meta.changes ? new Response(null, { status: 204 }) : json({ error: "Not found" }, 404);
+}
+
+export async function calculateScenario(request: Request, db: D1Database): Promise<Response> {
+  const input = await jsonObject(request);
+  if (!input || !validAmount(input.amountMinor) || !validDate(input.date)) return json({ error: "Invalid scenario" }, 400);
+  const date = input.date;
+  const financials = await getFinancials(request, db);
+  if (!financials.ok) return financials;
+  const data = await financials.json() as { overview: ReturnType<typeof buildOverview> };
+  const overview = data.overview;
+  if (!overview) return json({ error: "Confirm current cash before running a scenario" }, 409);
+  if (date < overview.horizonStart || date >= overview.horizonEnd) return json({ error: "Scenario date must be inside the current 90-day outlook" }, 400);
+  const amountMinor = Number(input.amountMinor);
+  const projectedAtDate = overview.points.filter((point) => point.date <= date).at(-1)?.balanceMinor ?? overview.currentCashMinor;
+  const futurePoints = overview.points.filter((point) => point.date >= date);
+  const futureLow = Math.min(projectedAtDate, ...futurePoints.map((point) => point.balanceMinor)) - amountMinor;
+  const lowestBalanceMinor = Math.min(overview.lowestBalanceMinor, futureLow);
+  const projectedHeadroom = projectedAtDate - amountMinor - (overview.points.filter((point) => point.date <= date).at(-1)?.protectedMinor ?? overview.protectedMinor);
+  const futureHeadroom = futurePoints.map((point) => point.balanceMinor - amountMinor - point.protectedMinor);
+  const lowestHeadroomMinor = Math.min(overview.lowestHeadroomMinor, projectedHeadroom, ...futureHeadroom);
+  return json({
+    amountMinor,
+    date,
+    lowestBalanceMinor,
+    safeToSpendMinor: Math.max(0, lowestHeadroomMinor),
+    safeToSpendChangeMinor: Math.max(0, lowestHeadroomMinor) - overview.safeToSpendMinor,
+    risk: lowestBalanceMinor < 0 ? "at_risk" : lowestHeadroomMinor < 0 ? "caution" : "normal",
+    crossesProtectedLevel: lowestHeadroomMinor < 0,
+  });
 }

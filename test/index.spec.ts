@@ -331,18 +331,18 @@ describe("Finvayo Worker", () => {
     await SELF.fetch("https://finvayo.test/api/settings", {
       method: "PATCH",
       headers,
-      body: JSON.stringify({ name: "Forecast Co", currency: "USD", timezone: "UTC", minimumBufferMinor: 10000, taxReserveMinor: 5000 }),
+      body: JSON.stringify({ name: "Forecast Co", currency: "USD", timezone: "UTC", minimumBufferMinor: 10000, taxReserveMinor: 5000, taxReserveMode: "fixed", taxRateBasisPoints: 0, paymentDelayDays: 0 }),
     });
     await SELF.fetch("https://finvayo.test/api/cash-snapshots", {
       method: "POST",
       headers,
-      body: JSON.stringify({ balanceMinor: 100000, effectiveDate: "2026-01-01" }),
+      body: JSON.stringify({ balanceMinor: 100000, effectiveDate: "2026-09-08" }),
     });
     await SELF.fetch("https://finvayo.test/api/cash-entries", {
       method: "POST",
       headers,
       body: JSON.stringify({
-        direction: "inflow", name: "January invoice", amountMinor: 20000, scheduledDate: "2026-01-05",
+        direction: "inflow", name: "September invoice", amountMinor: 20000, scheduledDate: "2026-09-10",
         status: "invoiced", category: "service_income",
       }),
     });
@@ -350,7 +350,7 @@ describe("Finvayo Worker", () => {
       method: "POST",
       headers,
       body: JSON.stringify({
-        direction: "outflow", name: "Month-end subscription", amountMinor: 30000, scheduledDate: "2026-01-31",
+        direction: "outflow", name: "Month-end subscription", amountMinor: 30000, scheduledDate: "2026-09-30",
         status: "planned", category: "subscriptions", recurrence: "monthly",
       }),
     });
@@ -367,10 +367,38 @@ describe("Finvayo Worker", () => {
       protectedMinor: 15000,
       lowestBalanceMinor: 30000,
       safeToSpendMinor: 15000,
-      limitingDate: "2026-03-31",
+      limitingDate: "2026-11-30",
       risk: "normal",
     }));
-    expect(data.overview.events.map((event) => event.date)).toEqual(["2026-01-05", "2026-01-31", "2026-02-28", "2026-03-31"]);
+    expect(data.overview.events.map((event) => event.date)).toEqual(["2026-09-10", "2026-09-30", "2026-10-30", "2026-11-30"]);
+  });
+
+  it("edits, excludes, and completes planned entries with an actual date", async () => {
+    const form = new FormData();
+    form.set("email", `lifecycle-${crypto.randomUUID()}@example.com`);
+    form.set("password", "a-secure-example-password");
+    form.set("terms", "on");
+    const signup = await SELF.fetch("https://finvayo.test/auth/signup", { method: "POST", body: form, redirect: "manual" });
+    const cookie = signup.headers.get("set-cookie")?.split(";")[0] ?? "";
+    const headers = { cookie, origin: "https://finvayo.test", "content-type": "application/json" };
+    const created = await SELF.fetch("https://finvayo.test/api/cash-entries", {
+      method: "POST", headers,
+      body: JSON.stringify({ direction: "outflow", name: "Draft cost", amountMinor: 10000, scheduledDate: "2026-10-01", status: "planned", category: "other", recurrence: "monthly" }),
+    });
+    const { id } = (await created.json()) as { id: string };
+    const edited = await SELF.fetch(`https://finvayo.test/api/cash-entries/${id}`, {
+      method: "PATCH", headers,
+      body: JSON.stringify({ name: "Hosting", amountMinor: 12500, scheduledDate: "2026-10-02", category: "software", included: false }),
+    });
+    expect(edited.status).toBe(200);
+    const completed = await SELF.fetch(`https://finvayo.test/api/cash-entries/${id}`, {
+      method: "PATCH", headers,
+      body: JSON.stringify({ status: "paid", actualAmountMinor: 12000, actualDate: "2026-10-03" }),
+    });
+    expect(completed.status).toBe(200);
+    const data = (await (await SELF.fetch("https://finvayo.test/api/financials", { headers: { cookie } })).json()) as { entries: Array<Record<string, unknown>> };
+    expect(data.entries).toContainEqual(expect.objectContaining({ id, name: "Hosting", amountMinor: 12500, status: "paid", actualAmountMinor: 12000, actualDate: "2026-10-03", recurrence: "monthly", included: 0 }));
+    expect(data.entries).toContainEqual(expect.objectContaining({ name: "Hosting", scheduledDate: "2026-11-02", status: "planned", recurrence: "monthly" }));
   });
 
   it("records and deletes a paid business expense", async () => {
@@ -443,6 +471,12 @@ describe("Finvayo Worker", () => {
       ]),
     });
 
+    const updatedParty = await SELF.fetch(`https://finvayo.test/api/parties/${partyId}`, {
+      method: "PATCH", headers,
+      body: JSON.stringify({ name: "Northstar Group", role: "both", email: "finance@northstar.example", phone: "+1 555 0100" }),
+    });
+    expect(updatedParty.status).toBe(200);
+
     const incompatible = await SELF.fetch("https://finvayo.test/api/cash-entries", {
       method: "POST",
       headers,
@@ -457,8 +491,7 @@ describe("Finvayo Worker", () => {
         partyId,
       }),
     });
-    expect(incompatible.status).toBe(400);
-    await expect(incompatible.json()).resolves.toEqual({ error: "Party must be a supplier" });
+    expect(incompatible.status).toBe(201);
 
     const transaction = await SELF.fetch("https://finvayo.test/api/cash-entries", {
       method: "POST",
@@ -483,8 +516,82 @@ describe("Finvayo Worker", () => {
       entries: Array<{ id: string; partyId: string | null; partyName: string }>;
     };
     expect(financials.entries).toContainEqual(
-      expect.objectContaining({ id: transactionId, partyId: null, partyName: "Northstar Ltd" }),
+      expect.objectContaining({ id: transactionId, partyId: null, partyName: "Northstar Group" }),
     );
+  });
+
+  it("completes weekly reviews and records invoice follow-ups", async () => {
+    const form = new FormData();
+    form.set("email", `workflow-${crypto.randomUUID()}@example.com`);
+    form.set("password", "a-secure-example-password");
+    form.set("terms", "on");
+    const signup = await SELF.fetch("https://finvayo.test/auth/signup", { method: "POST", body: form, redirect: "manual" });
+    const cookie = signup.headers.get("set-cookie")?.split(";")[0] ?? "";
+    const headers = { cookie, origin: "https://finvayo.test", "content-type": "application/json" };
+    await SELF.fetch("https://finvayo.test/api/cash-snapshots", { method: "POST", headers, body: JSON.stringify({ balanceMinor: 100000, effectiveDate: "2026-09-08" }) });
+    const payment = await SELF.fetch("https://finvayo.test/api/cash-entries", { method: "POST", headers, body: JSON.stringify({ direction: "inflow", name: "Late invoice", amountMinor: 30000, scheduledDate: "2026-09-01", status: "invoiced", category: "service_income", clientName: "Late Client", invoiceReference: "INV-9" }) });
+    const { id: entryId } = (await payment.json()) as { id: string };
+    const preview = await SELF.fetch("https://finvayo.test/api/follow-ups/preview", { method: "POST", headers, body: JSON.stringify({ entryId, tone: "friendly" }) });
+    expect(preview.status).toBe(200);
+    const { message } = (await preview.json()) as { message: string };
+    expect(message).toContain("Late Client");
+    expect((await SELF.fetch("https://finvayo.test/api/follow-ups", { method: "POST", headers, body: JSON.stringify({ entryId, tone: "friendly", message }) })).status).toBe(201);
+    expect((await SELF.fetch("https://finvayo.test/api/weekly-reviews", { method: "POST", headers, body: JSON.stringify({ completed: ["cash", "income", "expenses", "overdue", "outlook"] }) })).status).toBe(201);
+    const data = (await (await SELF.fetch("https://finvayo.test/api/workflows", { headers: { cookie } })).json()) as { lastReview: unknown; followUps: unknown[] };
+    expect(data.lastReview).not.toBeNull();
+    expect(data.followUps).toHaveLength(1);
+  });
+
+  it("calculates percentage reserves and server-side scenarios", async () => {
+    const form = new FormData();
+    form.set("email", `scenario-${crypto.randomUUID()}@example.com`);
+    form.set("password", "a-secure-example-password");
+    form.set("terms", "on");
+    const signup = await SELF.fetch("https://finvayo.test/auth/signup", { method: "POST", body: form, redirect: "manual" });
+    const cookie = signup.headers.get("set-cookie")?.split(";")[0] ?? "";
+    const headers = { cookie, origin: "https://finvayo.test", "content-type": "application/json" };
+    await SELF.fetch("https://finvayo.test/api/settings", { method: "PATCH", headers, body: JSON.stringify({ name: "Scenario Co", currency: "USD", timezone: "UTC", minimumBufferMinor: 10000, taxReserveMinor: 5000, taxReserveMode: "percentage", taxRateBasisPoints: 2000, paymentDelayDays: 5 }) });
+    await SELF.fetch("https://finvayo.test/api/cash-snapshots", { method: "POST", headers, body: JSON.stringify({ balanceMinor: 100000, effectiveDate: "2026-09-08" }) });
+    await SELF.fetch("https://finvayo.test/api/cash-entries", { method: "POST", headers, body: JSON.stringify({ direction: "inflow", name: "Invoice", amountMinor: 50000, scheduledDate: "2026-09-10", status: "expected", category: "service_income" }) });
+    const financials = (await (await SELF.fetch("https://finvayo.test/api/financials", { headers: { cookie } })).json()) as { overview: { events: Array<{ date: string }>; taxReserveMinor: number } };
+    expect(financials.overview.events[0].date).toBe("2026-09-15");
+    expect(financials.overview.taxReserveMinor).toBe(15000);
+    const scenario = await SELF.fetch("https://finvayo.test/api/scenarios", { method: "POST", headers, body: JSON.stringify({ amountMinor: 30000, date: "2026-09-20" }) });
+    expect(scenario.status).toBe(200);
+    await expect(scenario.json()).resolves.toEqual(expect.objectContaining({ amountMinor: 30000, date: "2026-09-20", safeToSpendChangeMinor: 0, risk: "normal" }));
+  });
+
+  it("exports and resets workspace product data", async () => {
+    const form = new FormData();
+    form.set("email", `export-${crypto.randomUUID()}@example.com`);
+    form.set("password", "a-secure-example-password");
+    form.set("terms", "on");
+    const signup = await SELF.fetch("https://finvayo.test/auth/signup", { method: "POST", body: form, redirect: "manual" });
+    const cookie = signup.headers.get("set-cookie")?.split(";")[0] ?? "";
+    const headers = { cookie, origin: "https://finvayo.test", "content-type": "application/json" };
+    await SELF.fetch("https://finvayo.test/api/cash-snapshots", { method: "POST", headers, body: JSON.stringify({ balanceMinor: 100000, effectiveDate: "2026-09-08" }) });
+    const exported = await SELF.fetch("https://finvayo.test/api/export?format=json", { headers: { cookie } });
+    expect(exported.headers.get("content-disposition")).toContain("finvayo-data.json");
+    expect((await SELF.fetch("https://finvayo.test/api/plan/reset", { method: "POST", headers, body: JSON.stringify({ password: "a-secure-example-password" }) })).status).toBe(200);
+    const financials = (await (await SELF.fetch("https://finvayo.test/api/financials", { headers: { cookie } })).json()) as { snapshot: unknown };
+    expect(financials.snapshot).toBeNull();
+  });
+
+  it("deletes an account after password confirmation", async () => {
+    const form = new FormData();
+    const email = `delete-${crypto.randomUUID()}@example.com`;
+    form.set("email", email);
+    form.set("password", "a-secure-example-password");
+    form.set("terms", "on");
+    const signup = await SELF.fetch("https://finvayo.test/auth/signup", { method: "POST", body: form, redirect: "manual" });
+    const cookie = signup.headers.get("set-cookie")?.split(";")[0] ?? "";
+    const headers = { cookie, origin: "https://finvayo.test", "content-type": "application/json" };
+    const incorrect = await SELF.fetch("https://finvayo.test/api/account", { method: "DELETE", headers, body: JSON.stringify({ password: "wrong-password" }) });
+    expect(incorrect.status).toBe(403);
+    const deleted = await SELF.fetch("https://finvayo.test/api/account", { method: "DELETE", headers, body: JSON.stringify({ password: "a-secure-example-password" }) });
+    expect(deleted.status).toBe(204);
+    const user = await env.DB.prepare("SELECT id FROM users WHERE email = ?").bind(email).first();
+    expect(user).toBeNull();
   });
 
   it("supports direction-specific income and expense categories", async () => {
@@ -560,6 +667,9 @@ describe("Finvayo Worker", () => {
         timezone: "Europe/Tirane",
         minimumBufferMinor: 150000,
         taxReserveMinor: 42000,
+        taxReserveMode: "percentage",
+        taxRateBasisPoints: 2000,
+        paymentDelayDays: 5,
       }),
     });
     expect(updated.status).toBe(200);
@@ -572,6 +682,9 @@ describe("Finvayo Worker", () => {
         timezone: "Europe/Tirane",
         minimumBufferMinor: 150000,
         taxReserveMinor: 42000,
+        taxReserveMode: "percentage",
+        taxRateBasisPoints: 2000,
+        paymentDelayDays: 5,
         currencyLocked: 0,
       }),
     });
@@ -590,6 +703,9 @@ describe("Finvayo Worker", () => {
         timezone: "Europe/London",
         minimumBufferMinor: 150000,
         taxReserveMinor: 42000,
+        taxReserveMode: "percentage",
+        taxRateBasisPoints: 2000,
+        paymentDelayDays: 5,
       }),
     });
     expect(locked.status).toBe(409);

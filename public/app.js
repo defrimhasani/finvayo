@@ -27,6 +27,10 @@ if (form && page.dataset.preview !== "true") {
   let entries = [];
   let parties = [];
   let currentOverview = null;
+  let editingId = null;
+  let editingEntry = null;
+  let editingPartyId = null;
+  let currentScenario = null;
   const categories = {
     inflow: [
       ["service_income", "Service income"], ["product_sales", "Product sales"], ["retainer_income", "Retainer income"],
@@ -82,6 +86,7 @@ if (form && page.dataset.preview !== "true") {
       const meta = document.createElement("small");
       const amount = document.createElement("b");
       const remove = document.createElement("button");
+      const actions = document.createElement("div");
 
       name.textContent = entry.name;
       meta.textContent = `${entry.scheduledDate} · ${entry.status} · ${transactionLabel(entry)}`;
@@ -91,8 +96,26 @@ if (form && page.dataset.preview !== "true") {
       remove.dataset.id = entry.id;
       remove.setAttribute("aria-label", `Delete ${entry.name}`);
       remove.textContent = "×";
+      actions.className = "transaction-actions";
+      if (entry.status !== "paid") {
+        const complete = document.createElement("button");
+        complete.type = "button";
+        complete.dataset.completeId = entry.id;
+        complete.textContent = "Mark paid";
+        const include = document.createElement("button");
+        include.type = "button";
+        include.dataset.includeId = entry.id;
+        include.dataset.included = String(Boolean(entry.included));
+        include.textContent = entry.included ? "Exclude" : "Include";
+        actions.append(complete, include);
+      }
+      const edit = document.createElement("button");
+      edit.type = "button";
+      edit.dataset.editId = entry.id;
+      edit.textContent = "Edit";
+      actions.append(edit, remove);
       details.append(name, meta);
-      row.append(details, amount, remove);
+      row.append(details, amount, actions);
       list.append(row);
     }
   }
@@ -165,7 +188,10 @@ if (form && page.dataset.preview !== "true") {
     line += " H900";
     document.querySelector("#chart-line").setAttribute("d", line);
     document.querySelector("#chart-area").setAttribute("d", `${line} V250 H0 Z`);
-    document.querySelector("#protected-zone").style.bottom = `${Math.max(0, Math.min(250, ((overview.protectedMinor - chartMin) / range) * 250)) + 28}px`;
+    document.querySelector("#protected-zone").hidden = true;
+    let reserveLine = `M0 ${y(overview.points[0].protectedMinor).toFixed(1)}`;
+    for (const point of overview.points.slice(1)) reserveLine += ` H${x(point.date).toFixed(1)} V${y(point.protectedMinor).toFixed(1)}`;
+    document.querySelector("#reserve-line").setAttribute("d", `${reserveLine} H900`);
     document.querySelector("#protected-label").textContent = `Protected ${shortMoney(overview.protectedMinor, currency)}`;
     const ticks = [chartMax, chartMax - range / 3, chartMax - (2 * range) / 3, chartMin];
     ["#axis-max", "#axis-mid-high", "#axis-mid-low", "#axis-min"].forEach((selector, index) => {
@@ -205,12 +231,13 @@ if (form && page.dataset.preview !== "true") {
   }
 
   async function load() {
-    const [financialsResponse, partiesResponse] = await Promise.all([
+    const [financialsResponse, partiesResponse, workflowsResponse] = await Promise.all([
       fetch("/api/financials", { headers: { accept: "application/json" } }),
       fetch("/api/parties", { headers: { accept: "application/json" } }),
+      fetch("/api/workflows", { headers: { accept: "application/json" } }),
     ]);
-    if (!financialsResponse.ok || !partiesResponse.ok) throw new Error("Unable to load workspace data.");
-    const [financials, directory] = await Promise.all([financialsResponse.json(), partiesResponse.json()]);
+    if (!financialsResponse.ok || !partiesResponse.ok || !workflowsResponse.ok) throw new Error("Unable to load workspace data.");
+    const [financials, directory, workflows] = await Promise.all([financialsResponse.json(), partiesResponse.json(), workflowsResponse.json()]);
     entries = financials.entries;
     parties = directory.parties;
     form.dataset.currency = financials.currency || "USD";
@@ -218,6 +245,19 @@ if (form && page.dataset.preview !== "true") {
     renderOverview(financials.overview, form.dataset.currency);
     renderParties();
     setDirection();
+    renderWorkflows(workflows);
+  }
+
+  function renderWorkflows(workflows) {
+    const review = document.querySelector("#last-review");
+    review.textContent = workflows.lastReview
+      ? `Last completed ${new Date(workflows.lastReview.completedAt * 1000).toLocaleDateString(undefined, { dateStyle: "medium" })}. ${workflows.lastReview.summary}`
+      : "No review completed yet.";
+    const overdue = entries.filter((entry) => entry.direction === "inflow" && entry.status === "overdue");
+    const select = document.querySelector("#follow-up-entry");
+    select.replaceChildren(new Option(overdue.length ? "Choose an overdue payment" : "No overdue payments", ""));
+    for (const entry of overdue) select.add(new Option(`${entry.partyName || entry.clientName || entry.name} · ${money(entry.amountMinor, form.dataset.currency)}`, entry.id));
+    document.querySelector("#generate-follow-up").disabled = overdue.length === 0;
   }
 
   function roleLabel(role) {
@@ -244,6 +284,7 @@ if (form && page.dataset.preview !== "true") {
       const contact = document.createElement("small");
       const role = document.createElement("span");
       const remove = document.createElement("button");
+      const edit = document.createElement("button");
       name.textContent = party.name;
       contact.textContent = [party.email, party.phone].filter(Boolean).join(" · ") || "No contact details";
       role.className = "party-role";
@@ -253,8 +294,14 @@ if (form && page.dataset.preview !== "true") {
       remove.dataset.partyId = party.id;
       remove.setAttribute("aria-label", `Delete ${party.name}`);
       remove.textContent = "×";
+      edit.type = "button";
+      edit.dataset.editPartyId = party.id;
+      edit.textContent = "Edit";
       details.append(name, contact);
-      row.append(details, role, remove);
+      const actions = document.createElement("div");
+      actions.className = "transaction-actions";
+      actions.append(edit, remove);
+      row.append(details, role, actions);
       partyList.append(row);
     }
   }
@@ -275,12 +322,26 @@ if (form && page.dataset.preview !== "true") {
     const recorded = form.elements.timing.value === "recorded";
     form.querySelectorAll("[data-inflow-field]").forEach((field) => { field.hidden = !inflow; });
     form.querySelectorAll("[data-outflow-field]").forEach((field) => { field.hidden = inflow; });
+    form.querySelectorAll("[data-planned-field]").forEach((field) => { field.hidden = recorded; });
     form.querySelector("[data-party-label]").textContent = inflow ? "Customer" : "Supplier";
     const category = form.elements.category;
     category.replaceChildren(...categories[inflow ? "inflow" : "outflow"].map(([value, label]) => new Option(label, value)));
+    const status = form.elements.status;
+    status.replaceChildren(...(inflow ? [["expected", "Expected"], ["invoiced", "Invoiced"], ["unlikely", "Unlikely"]] : [["planned", "Planned"]]).map(([value, label]) => new Option(label, value)));
     renderPartyOptions();
-    submit.textContent = recorded ? (inflow ? "Record payment" : "Record expense") : (inflow ? "Add expected income" : "Add planned expense");
+    submit.textContent = editingId ? "Save transaction" : recorded ? (inflow ? "Record payment" : "Record expense") : (inflow ? "Add expected income" : "Add planned expense");
   }
+
+  function stopEditing() {
+    editingId = null;
+    editingEntry = null;
+    form.reset();
+    dateInput.value = new Date().toISOString().slice(0, 10);
+    document.querySelector("#cancel-entry-edit").hidden = true;
+    setDirection();
+  }
+
+  document.querySelector("#cancel-entry-edit").addEventListener("click", stopEditing);
 
   form.addEventListener("change", (event) => {
     if (event.target.name === "direction" || event.target.name === "timing") setDirection();
@@ -303,29 +364,30 @@ if (form && page.dataset.preview !== "true") {
     const payload = {
       direction,
       name: form.elements.name.value,
-      amountMinor,
+      amountMinor: editingEntry?.status === "paid" ? editingEntry.amountMinor : amountMinor,
       actualAmountMinor: recorded ? amountMinor : undefined,
-      scheduledDate: form.elements.date.value,
-      status: recorded ? "paid" : direction === "inflow" ? "expected" : "planned",
-      partyId: form.elements.partyId.value || undefined,
+      actualDate: recorded ? form.elements.date.value : undefined,
+      scheduledDate: editingEntry?.status === "paid" ? editingEntry.scheduledDate : form.elements.date.value,
+      status: recorded ? "paid" : form.elements.status.value,
+      partyId: form.elements.partyId.value || (editingId ? null : undefined),
       invoiceReference: direction === "inflow" ? form.elements.invoiceReference.value : undefined,
       category: form.elements.category.value,
+      recurrence: !recorded && form.elements.recurring.checked ? "monthly" : editingId ? null : undefined,
     };
 
     submit.disabled = true;
     try {
-      const response = await fetch("/api/cash-entries", {
-        method: "POST",
+      const response = await fetch(editingId ? `/api/cash-entries/${editingId}` : "/api/cash-entries", {
+        method: editingId ? "PATCH" : "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Unable to record transaction.");
-      form.reset();
-      dateInput.value = new Date().toISOString().slice(0, 10);
-      setDirection();
+      const wasEditing = Boolean(editingId);
+      stopEditing();
       await load();
-      message.textContent = recorded
+      message.textContent = wasEditing ? "Transaction updated." : recorded
         ? direction === "inflow" ? "Payment recorded." : "Expense recorded."
         : direction === "inflow" ? "Expected income added to the forecast." : "Planned expense added to the forecast.";
     } catch (error) {
@@ -337,7 +399,54 @@ if (form && page.dataset.preview !== "true") {
   });
 
   list.addEventListener("click", async (event) => {
-    const button = event.target.closest("button[data-id]");
+    const action = event.target.closest("button");
+    if (!action) return;
+    if (action.dataset.completeId) {
+      const entry = entries.find((item) => item.id === action.dataset.completeId);
+      const amount = window.prompt("Actual amount", ((entry.actualAmountMinor || entry.amountMinor) / 100).toFixed(2));
+      const actualDate = window.prompt("Actual date (YYYY-MM-DD)", new Date().toISOString().slice(0, 10));
+      if (amount === null || actualDate === null || !/^\d+(?:\.\d{1,2})?$/.test(amount)) return;
+      const response = await fetch(`/api/cash-entries/${entry.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ status: "paid", actualAmountMinor: Math.round(Number(amount) * 100), actualDate }),
+      });
+      if (!response.ok) { message.className = "transaction-message error"; message.textContent = (await response.json()).error; return; }
+      await load();
+      message.className = "transaction-message";
+      message.textContent = "Transaction marked paid.";
+      return;
+    }
+    if (action.dataset.includeId) {
+      const response = await fetch(`/api/cash-entries/${action.dataset.includeId}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ included: action.dataset.included !== "true" }),
+      });
+      if (response.ok) await load();
+      return;
+    }
+    if (action.dataset.editId) {
+      const entry = entries.find((item) => item.id === action.dataset.editId);
+      editingId = entry.id;
+      editingEntry = entry;
+      form.elements.direction.value = entry.direction;
+      form.elements.timing.value = entry.status === "paid" ? "recorded" : "planned";
+      setDirection();
+      form.elements.name.value = entry.name;
+      form.elements.amount.value = (entry.amountMinor / 100).toFixed(2);
+      form.elements.date.value = entry.scheduledDate;
+      form.elements.partyId.value = entry.partyId || "";
+      form.elements.invoiceReference.value = entry.invoiceReference || "";
+      form.elements.category.value = entry.category || (entry.direction === "inflow" ? "service_income" : "other");
+      if (entry.status !== "paid") form.elements.status.value = entry.storedStatus || entry.status;
+      form.elements.recurring.checked = entry.recurrence === "monthly";
+      document.querySelector("#cancel-entry-edit").hidden = false;
+      submit.textContent = "Save transaction";
+      form.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    const button = action.closest("button[data-id]");
     if (!button || !window.confirm("Delete this transaction?")) return;
     button.disabled = true;
     try {
@@ -383,30 +492,78 @@ if (form && page.dataset.preview !== "true") {
     }
   });
 
-  scenarioForm.addEventListener("submit", (event) => {
+  scenarioForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const result = document.querySelector("#scenario-result");
     const value = scenarioForm.elements.amount.value.trim();
     const amount = /^\d+(?:\.\d{1,2})?$/.test(value) ? Math.round(Number(value) * 100) : 0;
     const date = scenarioForm.elements.date.value;
-    if (!currentOverview) {
-      result.textContent = "Confirm current cash before running a scenario.";
-      return;
-    }
-    if (!amount || date < currentOverview.horizonStart || date >= currentOverview.horizonEnd) {
-      result.textContent = "Enter a positive amount and a date inside the current 90-day outlook.";
-      return;
-    }
-    const projectedAtDate = currentOverview.points
-      .filter((point) => point.date <= date)
-      .at(-1)?.balanceMinor ?? currentOverview.currentCashMinor;
-    const futureLow = Math.min(
-      projectedAtDate,
-      ...currentOverview.points.filter((point) => point.date >= date).map((point) => point.balanceMinor),
-    ) - amount;
-    const headroom = futureLow - currentOverview.protectedMinor;
-    const state = futureLow < 0 ? "at risk" : headroom < 0 ? "caution" : "within your protected plan";
-    result.textContent = `After this purchase, the lowest projected cash would be ${money(futureLow, form.dataset.currency)}: ${state}. This scenario was not saved.`;
+    currentScenario = null;
+    document.querySelector("#save-scenario").hidden = true;
+    const response = await fetch("/api/scenarios", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ amountMinor: amount, date }) });
+    const scenario = await response.json();
+    if (!response.ok) { result.textContent = scenario.error; return; }
+    currentScenario = scenario;
+    const state = scenario.risk === "at_risk" ? "at risk" : scenario.risk === "caution" ? "caution" : "within your protected plan";
+    result.textContent = `Lowest projected cash: ${money(scenario.lowestBalanceMinor, form.dataset.currency)}. Safe-to-spend changes by ${money(scenario.safeToSpendChangeMinor, form.dataset.currency)}: ${state}.`;
+    document.querySelector("#save-scenario").hidden = false;
+  });
+
+  document.querySelector("#save-scenario").addEventListener("click", () => {
+    if (!currentScenario) return;
+    editingId = null;
+    form.elements.direction.value = "outflow";
+    form.elements.timing.value = "planned";
+    setDirection();
+    form.elements.name.value = "Scenario purchase";
+    form.elements.amount.value = (currentScenario.amountMinor / 100).toFixed(2);
+    form.elements.date.value = currentScenario.date;
+    form.elements.category.value = "equipment";
+    form.scrollIntoView({ behavior: "smooth", block: "center" });
+    message.textContent = "Scenario copied into the transaction form. Review and add it to your plan.";
+  });
+
+  document.querySelector("#review-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const reviewForm = event.currentTarget;
+    const completed = [...reviewForm.querySelectorAll('input[name="step"]:checked')].map((item) => item.value);
+    const reviewMessage = document.querySelector("#review-message");
+    const response = await fetch("/api/weekly-reviews", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ completed }) });
+    const result = await response.json();
+    reviewMessage.className = `transaction-message${response.ok ? "" : " error"}`;
+    reviewMessage.textContent = response.ok ? "Weekly review completed." : result.error;
+    if (response.ok) { reviewForm.reset(); await load(); }
+  });
+
+  document.querySelector("#generate-follow-up").addEventListener("click", async () => {
+    const entryId = document.querySelector("#follow-up-entry").value;
+    const tone = document.querySelector("#follow-up-tone").value;
+    if (!entryId) return;
+    const response = await fetch("/api/follow-ups/preview", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ entryId, tone }) });
+    const result = await response.json();
+    const status = document.querySelector("#follow-up-status");
+    status.className = `transaction-message${response.ok ? "" : " error"}`;
+    if (response.ok) document.querySelector("#follow-up-message").value = result.message;
+    status.textContent = response.ok ? "Message ready to review and edit." : result.error;
+  });
+
+  document.querySelector("#copy-follow-up").addEventListener("click", async () => {
+    const text = document.querySelector("#follow-up-message").value;
+    if (!text) return;
+    await navigator.clipboard.writeText(text);
+    document.querySelector("#follow-up-status").textContent = "Message copied.";
+  });
+
+  document.querySelector("#complete-follow-up").addEventListener("click", async () => {
+    const entryId = document.querySelector("#follow-up-entry").value;
+    const tone = document.querySelector("#follow-up-tone").value;
+    const followUpMessage = document.querySelector("#follow-up-message").value;
+    if (!entryId || !followUpMessage) return;
+    const response = await fetch("/api/follow-ups", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ entryId, tone, message: followUpMessage }) });
+    const result = await response.json();
+    const status = document.querySelector("#follow-up-status");
+    status.className = `transaction-message${response.ok ? "" : " error"}`;
+    status.textContent = response.ok ? "Follow-up marked as sent." : result.error;
   });
 
   partyForm.addEventListener("submit", async (event) => {
@@ -417,23 +574,28 @@ if (form && page.dataset.preview !== "true") {
     partyMessage.textContent = "";
     partySubmit.disabled = true;
     try {
-      const response = await fetch("/api/parties", {
-        method: "POST",
+      const response = await fetch(editingPartyId ? `/api/parties/${editingPartyId}` : "/api/parties", {
+        method: editingPartyId ? "PATCH" : "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           name: partyForm.elements.name.value,
           role: partyForm.elements.role.value,
           email: partyForm.elements.email.value,
           phone: partyForm.elements.phone.value,
+          notes: partyForm.elements.notes.value,
         }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Unable to register party.");
+      const wasEditing = Boolean(editingPartyId);
+      editingPartyId = null;
       partyForm.reset();
+      document.querySelector("#cancel-party-edit").hidden = true;
+      partySubmit.textContent = "Register party";
       await load();
-      form.elements.partyId.value = result.id;
+      if (!wasEditing) form.elements.partyId.value = result.id;
       const selected = form.elements.partyId.value === result.id;
-      partyMessage.textContent = selected ? "Party registered and selected for the next transaction." : "Party registered in the directory.";
+      partyMessage.textContent = wasEditing ? "Party updated." : selected ? "Party registered and selected for the next transaction." : "Party registered in the directory.";
     } catch (error) {
       partyMessage.className = "transaction-message error";
       partyMessage.textContent = error instanceof Error ? error.message : "Unable to register party.";
@@ -443,6 +605,20 @@ if (form && page.dataset.preview !== "true") {
   });
 
   document.querySelector("#party-list").addEventListener("click", async (event) => {
+    const edit = event.target.closest("button[data-edit-party-id]");
+    if (edit) {
+      const party = parties.find((item) => item.id === edit.dataset.editPartyId);
+      editingPartyId = party.id;
+      partyForm.elements.name.value = party.name;
+      partyForm.elements.role.value = party.role;
+      partyForm.elements.email.value = party.email || "";
+      partyForm.elements.phone.value = party.phone || "";
+      partyForm.elements.notes.value = party.notes || "";
+      partyForm.querySelector('button[type="submit"]').textContent = "Save party";
+      document.querySelector("#cancel-party-edit").hidden = false;
+      partyForm.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
     const button = event.target.closest("button[data-party-id]");
     if (!button || !window.confirm("Delete this party? Existing transactions will keep its name.")) return;
     button.disabled = true;
@@ -459,6 +635,13 @@ if (form && page.dataset.preview !== "true") {
       partyMessage.className = "transaction-message error";
       partyMessage.textContent = error instanceof Error ? error.message : "Unable to delete party.";
     }
+  });
+
+  document.querySelector("#cancel-party-edit").addEventListener("click", () => {
+    editingPartyId = null;
+    partyForm.reset();
+    partyForm.querySelector('button[type="submit"]').textContent = "Register party";
+    document.querySelector("#cancel-party-edit").hidden = true;
   });
 
   load().catch((error) => {

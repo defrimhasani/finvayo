@@ -41,8 +41,13 @@
           </div>
           <div class="transaction-fields">
             <label class="transaction-field"><span>Minimum cash buffer</span><input name="minimumBuffer" inputmode="decimal" required placeholder="0.00" /></label>
-            <label class="transaction-field"><span>Tax reserve</span><input name="taxReserve" inputmode="decimal" required placeholder="0.00" /></label>
+            <label class="transaction-field"><span>Tax already reserved</span><input name="taxReserve" inputmode="decimal" required placeholder="0.00" /></label>
           </div>
+          <div class="transaction-fields">
+            <label class="transaction-field"><span>Tax reserve method</span><select name="taxReserveMode"><option value="fixed">Fixed amount only</option><option value="percentage">Reserve future income percentage</option></select></label>
+            <label class="transaction-field"><span>Future income tax rate (%)</span><input name="taxRate" inputmode="decimal" required placeholder="0" /></label>
+          </div>
+          <label class="transaction-field"><span>Typical customer payment delay (days)</span><input name="paymentDelayDays" type="number" min="0" max="365" required /></label>
           <button class="button button-primary" type="submit">Save workspace settings</button>
           <p class="transaction-message" id="settings-message" role="status" aria-live="polite"></p>
         </form>
@@ -58,6 +63,18 @@
             <p class="settings-note" id="billing-note">Checking your subscription.</p>
             <div class="billing-actions" id="billing-actions"></div>
             <p class="transaction-message" id="billing-message" role="status" aria-live="polite"></p>
+          </section>
+          <section class="settings-card">
+            <p class="app-kicker">Your data</p><h2>Export</h2>
+            <p class="settings-note">Download a complete JSON archive or a spreadsheet-ready transaction CSV.</p>
+            <div class="billing-actions"><a class="button button-secondary" href="/api/export?format=json">Download JSON</a><a class="button button-secondary" href="/api/export?format=csv">Download CSV</a></div>
+          </section>
+          <section class="settings-card danger-card">
+            <p class="app-kicker">Danger zone</p><h2>Reset or delete</h2>
+            <p class="settings-note">Resetting removes all financial records and review history but keeps your account and parties. Account deletion removes the entire workspace and cannot proceed while a paid subscription is active.</p>
+            <label class="transaction-field"><span>Current password</span><input id="destructive-password" type="password" autocomplete="current-password" /></label>
+            <div class="billing-actions"><button class="button button-secondary" id="reset-plan" type="button">Reset financial plan</button><button class="button danger-button" id="delete-account" type="button">Delete account</button></div>
+            <p class="transaction-message" id="data-message" role="status" aria-live="polite"></p>
           </section>
         </div>
       </section>

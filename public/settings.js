@@ -43,6 +43,9 @@ async function loadSettings() {
   timezone.value = settings.timezone;
   form.elements.minimumBuffer.value = amountValue(settings.minimumBufferMinor);
   form.elements.taxReserve.value = amountValue(settings.taxReserveMinor);
+  form.elements.taxReserveMode.value = settings.taxReserveMode;
+  form.elements.taxRate.value = (settings.taxRateBasisPoints / 100).toFixed(2);
+  form.elements.paymentDelayDays.value = settings.paymentDelayDays;
   document.querySelector("#account-email").textContent = settings.email;
   if (settings.currencyLocked) {
     currency.disabled = true;
@@ -114,9 +117,12 @@ form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const minimumBufferMinor = amountMinor(form.elements.minimumBuffer.value);
   const taxReserveMinor = amountMinor(form.elements.taxReserve.value);
+  const taxRate = form.elements.taxRate.value.trim();
+  const taxRateBasisPoints = /^\d+(?:\.\d{1,2})?$/.test(taxRate) ? Math.round(Number(taxRate) * 100) : null;
+  const paymentDelayDays = Number(form.elements.paymentDelayDays.value);
   message.className = "transaction-message";
   message.textContent = "";
-  if (minimumBufferMinor === null || taxReserveMinor === null) {
+  if (minimumBufferMinor === null || taxReserveMinor === null || taxRateBasisPoints === null || taxRateBasisPoints > 10000 || !Number.isInteger(paymentDelayDays) || paymentDelayDays < 0 || paymentDelayDays > 365) {
     message.classList.add("error");
     message.textContent = "Enter valid non-negative amounts with up to two decimal places.";
     return;
@@ -134,6 +140,9 @@ form.addEventListener("submit", async (event) => {
         timezone: timezone.value,
         minimumBufferMinor,
         taxReserveMinor,
+        taxReserveMode: form.elements.taxReserveMode.value,
+        taxRateBasisPoints,
+        paymentDelayDays,
       }),
     });
     const result = await response.json();
@@ -151,3 +160,21 @@ Promise.all([loadSettings(), loadBilling()]).catch((error) => {
   message.className = "transaction-message error";
   message.textContent = error instanceof Error ? error.message : "Unable to load settings.";
 });
+
+async function destructiveAction(path, method, confirmation) {
+  const dataMessage = document.querySelector("#data-message");
+  const password = document.querySelector("#destructive-password").value;
+  if (!password || !window.confirm(confirmation)) return;
+  const response = await fetch(path, { method, headers: { "content-type": "application/json" }, body: JSON.stringify({ password }) });
+  if (response.ok) {
+    if (path === "/api/account") window.location.assign("/");
+    else window.location.assign("/app");
+    return;
+  }
+  const result = await response.json();
+  dataMessage.className = "transaction-message error";
+  dataMessage.textContent = result.error || "Unable to complete this request.";
+}
+
+document.querySelector("#reset-plan").addEventListener("click", () => destructiveAction("/api/plan/reset", "POST", "Delete all financial records and review history? This cannot be undone."));
+document.querySelector("#delete-account").addEventListener("click", () => destructiveAction("/api/account", "DELETE", "Permanently delete your Finvayo account and all workspace data?"));

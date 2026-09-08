@@ -606,7 +606,8 @@
 }
 
 .transaction-field input,
-.transaction-field select {
+.transaction-field select,
+.transaction-field textarea {
   width: 100%;
   min-height: 46px;
   padding: 0 0.8rem;
@@ -616,6 +617,11 @@
   color: var(--ink);
   font: inherit;
   font-size: 0.75rem;
+}
+
+.transaction-field textarea {
+  padding-block: 0.8rem;
+  resize: vertical;
 }
 
 .transaction-fields {
@@ -782,6 +788,18 @@
   min-height: 46px;
   padding-inline: 0.8rem;
   cursor: pointer;
+  text-align: center;
+  text-decoration: none;
+}
+
+.danger-card {
+  border-color: #b47a70;
+}
+
+.danger-button {
+  border: 1px solid #8c3e34;
+  background: #8c3e34;
+  color: white;
 }
 
 .billing-actions .button:only-child {
@@ -796,6 +814,31 @@
 
 .settings-mobile-nav {
   grid-template-columns: repeat(3, 1fr) !important;
+}
+
+.workflow-grid {
+  display: grid;
+  margin-top: 1rem;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.review-form,
+.follow-up-card {
+  display: grid;
+  align-content: start;
+  gap: 0.8rem;
+}
+
+.follow-up-card textarea {
+  width: 100%;
+  padding: 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  resize: vertical;
+  font: inherit;
+  font-size: 0.72rem;
+  line-height: 1.5;
 }
 
 .transaction-row {
@@ -845,6 +888,22 @@
 .transaction-delete:hover {
   border-color: #8c3e34;
   color: #8c3e34;
+}
+
+.transaction-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.transaction-actions button:not(.transaction-delete) {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--teal);
+  font: inherit;
+  font-size: 0.56rem;
+  cursor: pointer;
 }
 
 .transaction-empty {
@@ -1072,6 +1131,14 @@
   vector-effect: non-scaling-stroke;
 }
 
+.reserve-line {
+  fill: none;
+  stroke: #ae7350;
+  stroke-dasharray: 7 5;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
 .plot circle {
   fill: var(--paper-light);
   stroke: var(--teal);
@@ -1283,6 +1350,10 @@
   }
 
   .settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .workflow-grid {
     grid-template-columns: 1fr;
   }
 

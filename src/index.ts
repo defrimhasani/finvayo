@@ -12,11 +12,13 @@ import {
   verifyPassword,
 } from "./auth";
 import { sendWelcomeEmail, type EmailEnv } from "./email";
-import { createCashEntry, createCashSnapshot, deleteCashEntry, getFinancials, updateCashEntry } from "./financials";
+import { deleteAccount, exportWorkspace, resetPlan } from "./data-controls";
+import { calculateScenario, createCashEntry, createCashSnapshot, deleteCashEntry, getFinancials, updateCashEntry } from "./financials";
 import { requestPasswordReset, resetPassword, validResetToken } from "./password-reset";
-import { createParty, deleteParty, getParties } from "./parties";
+import { createParty, deleteParty, getParties, updateParty } from "./parties";
 import { getSettings, updateSettings } from "./settings";
 import { billingStatus, createCheckout, createPortal, handleStripeWebhook, type StripeEnv } from "./stripe";
+import { completeFollowUp, completeReview, generateFollowUp, getWorkflows } from "./workflows";
 
 const JSON_HEADERS = {
   "cache-control": "no-store",
@@ -89,9 +91,9 @@ async function renderSettings(request: Request, env: Env): Promise<Response> {
 
 async function handleSignup(request: Request, env: Env): Promise<Response> {
   if (!sameOrigin(request)) return new Response("Forbidden", { status: 403, headers: PAGE_HEADERS });
-  if (!(await allowAuthAttempt(request, env.DB, "signup"))) return redirect(request, "/signup?error=rate");
   const form = await request.formData();
   const email = normalizeEmail(form.get("email"));
+  if (!(await allowAuthAttempt(request, env.DB, `signup:${email ?? "invalid"}`))) return redirect(request, "/signup?error=rate");
   const password = form.get("password");
   const acceptedTerms = form.get("terms") === "on";
   if (!email || !validPassword(password) || !acceptedTerms) return redirect(request, "/signup?error=invalid");
@@ -134,9 +136,9 @@ async function handleSignup(request: Request, env: Env): Promise<Response> {
 
 async function handleLogin(request: Request, env: Env): Promise<Response> {
   if (!sameOrigin(request)) return new Response("Forbidden", { status: 403, headers: PAGE_HEADERS });
-  if (!(await allowAuthAttempt(request, env.DB, "login"))) return redirect(request, "/login?error=rate");
   const form = await request.formData();
   const email = normalizeEmail(form.get("email"));
+  if (!(await allowAuthAttempt(request, env.DB, `login:${email ?? "invalid"}`))) return redirect(request, "/login?error=rate");
   const password = form.get("password");
   if (!email || typeof password !== "string") return redirect(request, "/login?error=invalid");
 
@@ -204,6 +206,7 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
 
   if (url.pathname === "/api/financials" && request.method === "GET") return getFinancials(request, env.DB);
   if (url.pathname === "/api/cash-snapshots" && request.method === "POST") return createCashSnapshot(request, env.DB);
+  if (url.pathname === "/api/scenarios" && request.method === "POST") return calculateScenario(request, env.DB);
   if (url.pathname === "/api/cash-entries" && request.method === "POST") return createCashEntry(request, env.DB);
   const cashEntryMatch = url.pathname.match(/^\/api\/cash-entries\/([0-9a-f-]+)$/i);
   if (cashEntryMatch && request.method === "PATCH") return updateCashEntry(request, env.DB, cashEntryMatch[1]);
@@ -211,9 +214,17 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
   if (url.pathname === "/api/parties" && request.method === "GET") return getParties(request, env.DB);
   if (url.pathname === "/api/parties" && request.method === "POST") return createParty(request, env.DB);
   const partyMatch = url.pathname.match(/^\/api\/parties\/([0-9a-f-]+)$/i);
+  if (partyMatch && request.method === "PATCH") return updateParty(request, env.DB, partyMatch[1]);
   if (partyMatch && request.method === "DELETE") return deleteParty(request, env.DB, partyMatch[1]);
   if (url.pathname === "/api/settings" && request.method === "GET") return getSettings(request, env.DB);
   if (url.pathname === "/api/settings" && request.method === "PATCH") return updateSettings(request, env.DB);
+  if (url.pathname === "/api/export" && request.method === "GET") return exportWorkspace(request, env.DB);
+  if (url.pathname === "/api/plan/reset" && request.method === "POST") return resetPlan(request, env.DB);
+  if (url.pathname === "/api/account" && request.method === "DELETE") return deleteAccount(request, env.DB);
+  if (url.pathname === "/api/workflows" && request.method === "GET") return getWorkflows(request, env.DB);
+  if (url.pathname === "/api/weekly-reviews" && request.method === "POST") return completeReview(request, env.DB);
+  if (url.pathname === "/api/follow-ups/preview" && request.method === "POST") return generateFollowUp(request, env.DB);
+  if (url.pathname === "/api/follow-ups" && request.method === "POST") return completeFollowUp(request, env.DB);
   if (url.pathname === "/api/billing" && request.method === "GET") return billingStatus(request, env as StripeEnv);
   if (url.pathname === "/api/billing/checkout" && request.method === "POST") return createCheckout(request, env as StripeEnv);
   if (url.pathname === "/api/billing/portal" && request.method === "POST") return createPortal(request, env as StripeEnv);

@@ -80,3 +80,21 @@ export async function deleteParty(request: Request, db: D1Database, id: string):
   const result = await db.prepare("DELETE FROM parties WHERE id = ? AND workspace_id = ?").bind(id, user.workspaceId).run();
   return result.meta.changes ? new Response(null, { status: 204 }) : json({ error: "Not found" }, 404);
 }
+
+export async function updateParty(request: Request, db: D1Database, id: string): Promise<Response> {
+  const user = await currentUser(request, db);
+  if (!user) return json({ error: "Unauthorized" }, 401);
+  const input = await jsonObject(request);
+  if (!input) return json({ error: "Invalid JSON body" }, 400);
+  const existing = await db.prepare("SELECT name, role, email, phone, notes FROM parties WHERE id = ? AND workspace_id = ?").bind(id, user.workspaceId).first<Record<string, unknown>>();
+  if (!existing) return json({ error: "Not found" }, 404);
+  const merged = { ...existing, ...input };
+  const error = validParty(merged);
+  if (error) return json({ error }, 400);
+  const now = Math.floor(Date.now() / 1000);
+  const result = await db
+    .prepare("UPDATE parties SET name = ?, role = ?, email = ?, phone = ?, notes = ?, updated_at = ? WHERE id = ? AND workspace_id = ?")
+    .bind(String(merged.name).trim(), merged.role, optionalText(merged.email, 254), optionalText(merged.phone, 40), optionalText(merged.notes, 500), now, id, user.workspaceId)
+    .run();
+  return result.meta.changes ? json({ id }) : json({ error: "Not found" }, 404);
+}
