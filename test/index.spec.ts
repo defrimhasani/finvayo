@@ -295,6 +295,55 @@ describe("Finvayo Worker", () => {
     );
   });
 
+  it("supports direction-specific income and expense categories", async () => {
+    const form = new FormData();
+    form.set("email", `categories-${crypto.randomUUID()}@example.com`);
+    form.set("password", "a-secure-example-password");
+    form.set("terms", "on");
+    const signup = await SELF.fetch("https://finvayo.test/auth/signup", { method: "POST", body: form, redirect: "manual" });
+    const cookie = signup.headers.get("set-cookie")?.split(";")[0] ?? "";
+    const headers = { cookie, origin: "https://finvayo.test", "content-type": "application/json" };
+    const entry = (direction: string, category: string) => ({
+      direction,
+      name: `${category} transaction`,
+      amountMinor: 25000,
+      actualAmountMinor: 25000,
+      scheduledDate: "2026-09-08",
+      status: "paid",
+      category,
+    });
+
+    const income = await SELF.fetch("https://finvayo.test/api/cash-entries", {
+      method: "POST",
+      headers,
+      body: JSON.stringify(entry("inflow", "owner_contribution")),
+    });
+    expect(income.status).toBe(201);
+    const expense = await SELF.fetch("https://finvayo.test/api/cash-entries", {
+      method: "POST",
+      headers,
+      body: JSON.stringify(entry("outflow", "payment_processing_fees")),
+    });
+    expect(expense.status).toBe(201);
+    const invalid = await SELF.fetch("https://finvayo.test/api/cash-entries", {
+      method: "POST",
+      headers,
+      body: JSON.stringify(entry("inflow", "rent")),
+    });
+    expect(invalid.status).toBe(400);
+    await expect(invalid.json()).resolves.toEqual({ error: "Invalid category" });
+
+    const financials = (await (await SELF.fetch("https://finvayo.test/api/financials", { headers: { cookie } })).json()) as {
+      entries: Array<{ category: string }>;
+    };
+    expect(financials.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ category: "owner_contribution" }),
+        expect.objectContaining({ category: "payment_processing_fees" }),
+      ]),
+    );
+  });
+
   it("requires authentication and same-origin writes for financial data", async () => {
     const unauthorized = await SELF.fetch("https://finvayo.test/api/financials");
     expect(unauthorized.status).toBe(401);

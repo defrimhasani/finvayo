@@ -83,7 +83,7 @@
             </div>
             <label class="transaction-field"><span data-party-label>Customer</span><select name="partyId"><option value="">No registered customer</option></select></label>
             <label class="transaction-field" data-inflow-field><span>Invoice reference</span><input name="invoiceReference" maxlength="80" placeholder="INV-001" /></label>
-            <label class="transaction-field" data-outflow-field hidden><span>Category</span><select name="category"><option value="other">Other</option><option value="contractors">Contractors</option><option value="software">Software</option><option value="rent">Rent</option><option value="insurance">Insurance</option><option value="tax">Tax</option><option value="payroll_owner_pay">Payroll / owner pay</option><option value="debt">Debt</option></select></label>
+            <label class="transaction-field"><span>Category</span><select name="category" required></select></label>
             <button class="button button-primary" type="submit">Record payment</button>
             <p class="transaction-message" id="transaction-message" role="status" aria-live="polite"></p>
           </form>

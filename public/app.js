@@ -21,6 +21,25 @@ if (form && page.dataset.preview !== "true") {
   const dateInput = form.elements.date;
   let entries = [];
   let parties = [];
+  const categories = {
+    inflow: [
+      ["service_income", "Service income"], ["product_sales", "Product sales"], ["retainer_income", "Retainer income"],
+      ["commission_income", "Commission income"], ["interest_income", "Interest income"], ["refund_received", "Refund received"],
+      ["grant_income", "Grant income"], ["loan_proceeds", "Loan proceeds"], ["owner_contribution", "Owner contribution"],
+      ["asset_sale", "Asset sale"], ["transfer_in", "Transfer in"], ["other_income", "Other income"],
+    ],
+    outflow: [
+      ["contractors", "Contractors"], ["payroll_owner_pay", "Payroll / owner pay"], ["inventory", "Inventory / materials"],
+      ["software", "Software"], ["subscriptions", "Subscriptions"], ["rent", "Rent"], ["utilities", "Utilities"],
+      ["insurance", "Insurance"], ["professional_services", "Professional services"], ["marketing", "Marketing"],
+      ["advertising", "Advertising"], ["travel", "Travel"], ["meals", "Meals"], ["office_supplies", "Office supplies"],
+      ["equipment", "Equipment"], ["repairs_maintenance", "Repairs & maintenance"], ["shipping", "Shipping / postage"],
+      ["vehicle", "Vehicle"], ["training", "Training / education"], ["licenses_permits", "Licenses / permits"],
+      ["bank_fees", "Bank fees"], ["payment_processing_fees", "Payment processing fees"], ["tax", "Tax"],
+      ["debt", "Debt interest"], ["loan_repayment", "Loan repayment"], ["owner_draw", "Owner draw"],
+      ["refunds", "Customer refunds"], ["charitable_giving", "Charitable giving"], ["transfer_out", "Transfer out"], ["other", "Other"],
+    ],
+  };
 
   dateInput.value = new Date().toISOString().slice(0, 10);
 
@@ -29,8 +48,9 @@ if (form && page.dataset.preview !== "true") {
   }
 
   function transactionLabel(entry) {
-    const detail = entry.direction === "inflow" ? entry.invoiceReference : entry.category?.replaceAll("_", " ");
-    return [entry.partyName || entry.clientName, detail].filter(Boolean).join(" · ") || (entry.direction === "inflow" ? "Payment received" : "Expense paid");
+    const options = categories[entry.direction] || [];
+    const category = options.find(([value]) => value === entry.category)?.[1] || entry.category?.replaceAll("_", " ");
+    return [entry.partyName || entry.clientName, category, entry.invoiceReference].filter(Boolean).join(" · ") || (entry.direction === "inflow" ? "Payment received" : "Expense paid");
   }
 
   function render(currency) {
@@ -81,7 +101,7 @@ if (form && page.dataset.preview !== "true") {
     form.dataset.currency = financials.currency || "USD";
     render(form.dataset.currency);
     renderParties();
-    renderPartyOptions();
+    setDirection();
   }
 
   function roleLabel(role) {
@@ -139,6 +159,8 @@ if (form && page.dataset.preview !== "true") {
     form.querySelectorAll("[data-inflow-field]").forEach((field) => { field.hidden = !inflow; });
     form.querySelectorAll("[data-outflow-field]").forEach((field) => { field.hidden = inflow; });
     form.querySelector("[data-party-label]").textContent = inflow ? "Customer" : "Supplier";
+    const category = form.elements.category;
+    category.replaceChildren(...categories[inflow ? "inflow" : "outflow"].map(([value, label]) => new Option(label, value)));
     renderPartyOptions();
     submit.textContent = inflow ? "Record payment" : "Record expense";
   }
@@ -169,7 +191,7 @@ if (form && page.dataset.preview !== "true") {
       status: "paid",
       partyId: form.elements.partyId.value || undefined,
       invoiceReference: direction === "inflow" ? form.elements.invoiceReference.value : undefined,
-      category: direction === "outflow" ? form.elements.category.value : undefined,
+      category: form.elements.category.value,
     };
 
     submit.disabled = true;

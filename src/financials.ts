@@ -4,7 +4,52 @@ const MAX_AMOUNT_MINOR = 9_000_000_000_000;
 const JSON_HEADERS = { "cache-control": "no-store", "content-type": "application/json; charset=utf-8" } as const;
 const INFLOW_STATUSES = new Set(["expected", "invoiced", "overdue", "unlikely", "paid"]);
 const OUTFLOW_STATUSES = new Set(["planned", "paid"]);
-const CATEGORIES = new Set(["contractors", "software", "rent", "insurance", "tax", "payroll_owner_pay", "debt", "other"]);
+const INFLOW_CATEGORIES = new Set([
+  "service_income",
+  "product_sales",
+  "retainer_income",
+  "commission_income",
+  "interest_income",
+  "refund_received",
+  "grant_income",
+  "loan_proceeds",
+  "owner_contribution",
+  "asset_sale",
+  "transfer_in",
+  "other_income",
+]);
+const OUTFLOW_CATEGORIES = new Set([
+  "contractors",
+  "payroll_owner_pay",
+  "inventory",
+  "software",
+  "subscriptions",
+  "rent",
+  "utilities",
+  "insurance",
+  "professional_services",
+  "marketing",
+  "advertising",
+  "travel",
+  "meals",
+  "office_supplies",
+  "equipment",
+  "repairs_maintenance",
+  "shipping",
+  "vehicle",
+  "training",
+  "licenses_permits",
+  "bank_fees",
+  "payment_processing_fees",
+  "tax",
+  "debt",
+  "loan_repayment",
+  "owner_draw",
+  "refunds",
+  "charitable_giving",
+  "transfer_out",
+  "other",
+]);
 
 type CashEntryInput = {
   direction?: unknown;
@@ -76,7 +121,8 @@ export async function getFinancials(request: Request, db: D1Database): Promise<R
     db
       .prepare(
         `SELECT id, direction, name, amount_minor AS amountMinor, scheduled_date AS scheduledDate,
-          status, client_name AS clientName, invoice_reference AS invoiceReference, category,
+          status, client_name AS clientName, invoice_reference AS invoiceReference,
+          COALESCE(transaction_category, category) AS category,
           recurrence, included, actual_amount_minor AS actualAmountMinor, completed_at AS completedAt,
           party_id AS partyId, party_name AS partyName,
           created_at AS createdAt, updated_at AS updatedAt
@@ -117,7 +163,8 @@ function validateEntry(input: CashEntryInput): string | null {
   if (typeof input.status !== "string" || !statuses.has(input.status)) return "Invalid status";
   if (optionalText(input.clientName, 120) === undefined && input.clientName !== undefined) return "Invalid client name";
   if (optionalText(input.invoiceReference, 80) === undefined && input.invoiceReference !== undefined) return "Invalid invoice reference";
-  if (input.category !== undefined && input.category !== null && !CATEGORIES.has(String(input.category))) return "Invalid category";
+  const categories = input.direction === "inflow" ? INFLOW_CATEGORIES : OUTFLOW_CATEGORIES;
+  if (input.category !== undefined && input.category !== null && !categories.has(String(input.category))) return "Invalid category";
   if (input.recurrence !== undefined && input.recurrence !== null && input.recurrence !== "monthly") return "Invalid recurrence";
   if (input.included !== undefined && typeof input.included !== "boolean") return "Invalid inclusion setting";
   if (input.status === "paid" && !validAmount(input.actualAmountMinor)) return "Paid entries require an actual amount";
@@ -150,9 +197,9 @@ export async function createCashEntry(request: Request, db: D1Database): Promise
     .prepare(
       `INSERT INTO cash_entries
        (id, workspace_id, direction, name, amount_minor, scheduled_date, status, client_name,
-         invoice_reference, category, recurrence, included, actual_amount_minor, completed_at, party_id, party_name,
-         created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         invoice_reference, category, transaction_category, recurrence, included, actual_amount_minor, completed_at,
+         party_id, party_name, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       id,
@@ -164,6 +211,7 @@ export async function createCashEntry(request: Request, db: D1Database): Promise
       input.status,
       optionalText(input.clientName, 120) ?? null,
       optionalText(input.invoiceReference, 80) ?? null,
+      null,
       input.category ?? null,
       input.recurrence ?? null,
       input.included === false ? 0 : 1,
