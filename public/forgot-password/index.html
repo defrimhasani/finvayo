@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, noarchive" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="theme-color" content="#17221e" />
+    <title>Forgot password | Finvayo</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/product.css" />
+  </head>
+  <body class="login-page">
+    <a class="skip-link" href="#forgot-main">Skip to password recovery</a>
+    <header class="login-header"><a class="wordmark" href="/" aria-label="Finvayo home"><svg aria-hidden="true" viewBox="0 0 32 32"><path d="M5 24V8h22M8 20l5-5 4 3 8-9" /></svg>Finvayo</a><a class="login-help" href="/login">Back to sign in</a></header>
+    <main class="login-layout" id="forgot-main">
+      <section class="login-intro"><p class="eyebrow">Account recovery</p><h1>Get back to your cash plan.</h1><p>We will send a secure, single-use link that expires after one hour.</p></section>
+      <section class="login-panel" aria-labelledby="forgot-title">
+        <p class="panel-count">01 / Recover access</p><h2 id="forgot-title">Reset your password.</h2>
+        <p class="panel-copy">Enter the email associated with your Finvayo workspace.</p>
+        <div class="form-alert" id="form-alert" role="status" hidden></div>
+        <form class="login-form" action="/auth/forgot-password" method="post">
+          <label for="email">Work email</label><input id="email" name="email" type="email" autocomplete="email" required />
+          <button class="button button-primary" type="submit">Send reset link <span aria-hidden="true">→</span></button>
+        </form>
+        <p class="login-terms">For privacy, the confirmation is the same whether or not an account exists.</p>
+      </section>
+    </main>
+    <footer class="login-footer"><p>© 2026 Finvayo</p><p>Planning estimates, not financial advice.</p></footer>
+    <script>
+      const query = new URLSearchParams(window.location.search);
+      const alert = document.getElementById("form-alert");
+      if (query.get("sent")) { alert.textContent = "If an account exists for that email, a reset link is on its way."; alert.classList.add("success"); alert.hidden = false; }
+      if (query.get("error") === "expired") { alert.textContent = "That reset link is invalid or has expired. Request a new one."; alert.hidden = false; }
+      if (query.get("error") === "rate") { alert.textContent = "Too many attempts. Please wait 15 minutes and try again."; alert.hidden = false; }
+    </script>
+  </body>
+</html>

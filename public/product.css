@@ -172,6 +172,21 @@
   display: none;
 }
 
+.form-alert.success {
+  border-left-color: var(--teal);
+  background: #d8e4dc;
+  color: var(--teal);
+}
+
+.forgot-link {
+  margin-top: -0.35rem;
+  justify-self: end;
+  color: var(--teal);
+  font-size: 0.67rem;
+  font-weight: 600;
+  text-underline-offset: 0.2rem;
+}
+
 .login-form .button {
   margin-top: 0.4rem;
   cursor: pointer;

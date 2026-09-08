@@ -11,7 +11,9 @@ import {
   validPassword,
   verifyPassword,
 } from "./auth";
+import { sendWelcomeEmail, type EmailEnv } from "./email";
 import { createCashEntry, createCashSnapshot, deleteCashEntry, getFinancials, updateCashEntry } from "./financials";
+import { requestPasswordReset, resetPassword, validResetToken } from "./password-reset";
 import { createParty, deleteParty, getParties } from "./parties";
 import { getSettings, updateSettings } from "./settings";
 import { billingStatus, createCheckout, createPortal, handleStripeWebhook, type StripeEnv } from "./stripe";
@@ -121,7 +123,13 @@ async function handleSignup(request: Request, env: Env): Promise<Response> {
     return redirect(request, "/signup?error=unavailable");
   }
 
-  return redirect(request, "/app", sessionCookie(await createSession(env.DB, userId)));
+  const session = await createSession(env.DB, userId);
+  try {
+    await sendWelcomeEmail(env as EmailEnv, email);
+  } catch (error) {
+    console.error("Welcome email failed", { error: error instanceof Error ? error.message : String(error) });
+  }
+  return redirect(request, "/app", sessionCookie(session));
 }
 
 async function handleLogin(request: Request, env: Env): Promise<Response> {
@@ -164,6 +172,14 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
 
   if (url.pathname === "/auth/signup" && request.method === "POST") return handleSignup(request, env);
   if (url.pathname === "/auth/login" && request.method === "POST") return handleLogin(request, env);
+  if (url.pathname === "/auth/forgot-password" && request.method === "POST") {
+    if (!sameOrigin(request)) return new Response("Forbidden", { status: 403, headers: PAGE_HEADERS });
+    return requestPasswordReset(request, env as EmailEnv);
+  }
+  if (url.pathname === "/auth/reset-password" && request.method === "POST") {
+    if (!sameOrigin(request)) return new Response("Forbidden", { status: 403, headers: PAGE_HEADERS });
+    return resetPassword(request, env as EmailEnv);
+  }
   if (url.pathname === "/auth/logout" && request.method === "POST") {
     if (!sameOrigin(request)) return new Response("Forbidden", { status: 403, headers: PAGE_HEADERS });
     await revokeSession(request, env.DB);
@@ -210,13 +226,28 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
     return renderSettings(request, env);
   }
 
-  if (url.pathname === "/app-shell.html" || url.pathname === "/settings.html") {
+  if (url.pathname === "/reset-password" || url.pathname === "/reset-password/") {
+    const token = url.searchParams.get("token");
+    if (!(await validResetToken(env.DB, token))) return redirect(request, "/forgot-password?error=expired");
+    const template = await (await env.ASSETS.fetch(new URL("/reset-password/index.html", request.url))).text();
+    return new Response(template.replaceAll("{{TOKEN}}", safeText(token ?? "")), {
+      headers: { ...PAGE_HEADERS, "content-type": "text/html; charset=utf-8", "referrer-policy": "no-referrer" },
+    });
+  }
+
+  if (url.pathname === "/app-shell.html" || url.pathname === "/settings.html" || url.pathname === "/reset-password/index.html") {
     return new Response("Not found", { status: 404, headers: PAGE_HEADERS });
   }
 
   const response = await env.ASSETS.fetch(request);
 
-  if (url.pathname.startsWith("/login") || url.pathname.startsWith("/signup") || url.pathname.startsWith("/app/")) {
+  if (
+    url.pathname.startsWith("/login") ||
+    url.pathname.startsWith("/signup") ||
+    url.pathname.startsWith("/forgot-password") ||
+    url.pathname.startsWith("/reset-password") ||
+    url.pathname.startsWith("/app/")
+  ) {
     const headers = new Headers(response.headers);
     for (const [name, value] of Object.entries(PAGE_HEADERS)) headers.set(name, value);
     return new Response(response.body, { status: response.status, statusText: response.statusText, headers });

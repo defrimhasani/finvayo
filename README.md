@@ -51,6 +51,8 @@ This runs strict TypeScript checks, Worker integration tests, and a Wrangler pro
 
 ## Deployment
 
+Password reset and onboarding messages use a Cloudflare Email Service binding named `EMAIL`. Before deployment, onboard `finvayo.com` in Cloudflare Email Service and verify `hello@finvayo.com` as an allowed sender.
+
 Authenticate once, then deploy with Wrangler:
 
 ```sh

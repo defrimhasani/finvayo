@@ -44,6 +44,7 @@
           <input id="email" name="email" type="email" autocomplete="email" placeholder="you@business.com" required />
           <label for="password">Password</label>
           <input id="password" name="password" type="password" autocomplete="current-password" required />
+          <a class="forgot-link" href="/forgot-password">Forgot your password?</a>
           <button class="button button-primary" type="submit">
             Sign in <span aria-hidden="true">→</span>
           </button>
@@ -63,10 +64,17 @@
     </footer>
     <script>
       const error = new URLSearchParams(window.location.search).get("error");
+      const reset = new URLSearchParams(window.location.search).get("reset");
       const messages = { credentials: "The email or password is incorrect.", exists: "An account already exists. Sign in instead.", invalid: "Enter a valid email and password.", rate: "Too many attempts. Please wait 15 minutes and try again." };
       if (error && messages[error]) {
         const alert = document.getElementById("form-alert");
         alert.textContent = messages[error];
+        alert.hidden = false;
+      }
+      if (reset === "success") {
+        const alert = document.getElementById("form-alert");
+        alert.textContent = "Your password has been reset. Sign in with your new password.";
+        alert.classList.add("success");
         alert.hidden = false;
       }
     </script>

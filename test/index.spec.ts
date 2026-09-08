@@ -131,6 +131,106 @@ describe("Finvayo Worker", () => {
     expect(valid.headers.get("set-cookie")).toContain("SameSite=Lax");
   });
 
+  it("sends onboarding email after creating an account", async () => {
+    const send = vi.fn().mockResolvedValue({ messageId: "welcome-message" });
+    const email = `welcome-${crypto.randomUUID()}@example.com`;
+    const form = new FormData();
+    form.set("email", email);
+    form.set("password", "a-secure-example-password");
+    form.set("terms", "on");
+    const emailEnv = { ...env, EMAIL: { send } } as unknown as Env;
+
+    const response = await worker.fetch(
+      new Request("https://finvayo.test/auth/signup", { method: "POST", headers: { "cf-connecting-ip": "192.0.2.10" }, body: form }) as Parameters<typeof worker.fetch>[0],
+      emailEnv,
+    );
+
+    expect(response.status).toBe(303);
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: email,
+        from: { email: "hello@finvayo.com", name: "Finvayo" },
+        subject: "Welcome to Finvayo",
+      }),
+    );
+  });
+
+  it("resets a password with a single-use emailed token and revokes sessions", async () => {
+    const send = vi.fn().mockResolvedValue({ messageId: "email-message" });
+    const emailEnv = { ...env, EMAIL: { send } } as unknown as Env;
+    const email = `reset-${crypto.randomUUID()}@example.com`;
+    const signupForm = new FormData();
+    signupForm.set("email", email);
+    signupForm.set("password", "original-secure-password");
+    signupForm.set("terms", "on");
+    const signup = await worker.fetch(
+      new Request("https://finvayo.test/auth/signup", { method: "POST", headers: { "cf-connecting-ip": "192.0.2.11" }, body: signupForm }) as Parameters<typeof worker.fetch>[0],
+      emailEnv,
+    );
+    const oldCookie = signup.headers.get("set-cookie")?.split(";")[0] ?? "";
+    send.mockClear();
+
+    const forgotForm = new FormData();
+    forgotForm.set("email", email);
+    const forgot = await worker.fetch(
+      new Request("https://finvayo.test/auth/forgot-password", { method: "POST", headers: { "cf-connecting-ip": "192.0.2.12" }, body: forgotForm }) as Parameters<typeof worker.fetch>[0],
+      emailEnv,
+    );
+    expect(forgot.status).toBe(303);
+    expect(forgot.headers.get("location")).toBe("https://finvayo.test/forgot-password?sent=1");
+    expect(send).toHaveBeenCalledTimes(1);
+    const sent = send.mock.calls[0][0] as { text: string };
+    const resetUrl = sent.text.match(/https:\/\/finvayo\.test\/reset-password\?token=[A-Za-z0-9_-]+/)?.[0];
+    expect(resetUrl).toBeDefined();
+
+    const resetPage = await worker.fetch(new Request(resetUrl ?? "") as Parameters<typeof worker.fetch>[0], emailEnv);
+    expect(resetPage.status).toBe(200);
+    expect(await resetPage.text()).toContain("Choose a new password");
+    const token = new URL(resetUrl ?? "").searchParams.get("token") ?? "";
+    const resetForm = new FormData();
+    resetForm.set("token", token);
+    resetForm.set("password", "replacement-secure-password");
+    resetForm.set("passwordConfirmation", "replacement-secure-password");
+    const reset = await worker.fetch(
+      new Request("https://finvayo.test/auth/reset-password", { method: "POST", headers: { "cf-connecting-ip": "192.0.2.13" }, body: resetForm }) as Parameters<typeof worker.fetch>[0],
+      emailEnv,
+    );
+    expect(reset.status).toBe(303);
+    expect(reset.headers.get("location")).toBe("https://finvayo.test/login?reset=success");
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ to: email, subject: "Your Finvayo password was changed" }));
+
+    const oldSession = await worker.fetch(
+      new Request("https://finvayo.test/app", { headers: { cookie: oldCookie }, redirect: "manual" }) as Parameters<typeof worker.fetch>[0],
+      emailEnv,
+    );
+    expect(oldSession.headers.get("location")).toBe("https://finvayo.test/login?next=/app");
+    const reused = await worker.fetch(new Request(resetUrl ?? "", { redirect: "manual" }) as Parameters<typeof worker.fetch>[0], emailEnv);
+    expect(reused.headers.get("location")).toBe("https://finvayo.test/forgot-password?error=expired");
+
+    const loginForm = new FormData();
+    loginForm.set("email", email);
+    loginForm.set("password", "replacement-secure-password");
+    const login = await worker.fetch(
+      new Request("https://finvayo.test/auth/login", { method: "POST", body: loginForm }) as Parameters<typeof worker.fetch>[0],
+      emailEnv,
+    );
+    expect(login.headers.get("location")).toBe("https://finvayo.test/app");
+  });
+
+  it("does not reveal whether a password-reset account exists", async () => {
+    const send = vi.fn().mockResolvedValue({ messageId: "unused" });
+    const emailEnv = { ...env, EMAIL: { send } } as unknown as Env;
+    const form = new FormData();
+    form.set("email", `missing-${crypto.randomUUID()}@example.com`);
+    const response = await worker.fetch(
+      new Request("https://finvayo.test/auth/forgot-password", { method: "POST", headers: { "cf-connecting-ip": "192.0.2.14" }, body: form }) as Parameters<typeof worker.fetch>[0],
+      emailEnv,
+    );
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("https://finvayo.test/forgot-password?sent=1");
+    expect(send).not.toHaveBeenCalled();
+  });
+
   it("stores workspace cash snapshots and entries in integer minor units", async () => {
     const form = new FormData();
     form.set("email", `cash-${crypto.randomUUID()}@example.com`);
