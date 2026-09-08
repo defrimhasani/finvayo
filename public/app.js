@@ -11,6 +11,9 @@ if (form && page.dataset.preview === "true") {
     control.disabled = true;
   });
   document.querySelector("#party-message").textContent = "Create a workspace to register parties.";
+  document.querySelectorAll("#balance-form input, #balance-form button, #scenario-form input, #scenario-form button").forEach((control) => {
+    control.disabled = true;
+  });
 }
 
 if (form && page.dataset.preview !== "true") {
@@ -19,8 +22,11 @@ if (form && page.dataset.preview !== "true") {
   const count = document.querySelector("#transaction-count");
   const submit = form.querySelector('button[type="submit"]');
   const dateInput = form.elements.date;
+  const balanceForm = document.querySelector("#balance-form");
+  const scenarioForm = document.querySelector("#scenario-form");
   let entries = [];
   let parties = [];
+  let currentOverview = null;
   const categories = {
     inflow: [
       ["service_income", "Service income"], ["product_sales", "Product sales"], ["retainer_income", "Retainer income"],
@@ -42,6 +48,8 @@ if (form && page.dataset.preview !== "true") {
   };
 
   dateInput.value = new Date().toISOString().slice(0, 10);
+  balanceForm.elements.effectiveDate.value = dateInput.value;
+  scenarioForm.elements.date.value = dateInput.value;
 
   function money(amountMinor, currency) {
     return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(amountMinor / 100);
@@ -54,14 +62,14 @@ if (form && page.dataset.preview !== "true") {
   }
 
   function render(currency) {
-    const transactions = entries.filter((entry) => entry.status === "paid").sort((a, b) => b.scheduledDate.localeCompare(a.scheduledDate));
+    const transactions = [...entries].sort((a, b) => b.scheduledDate.localeCompare(a.scheduledDate));
     count.textContent = `${transactions.length} ${transactions.length === 1 ? "entry" : "entries"}`;
     list.replaceChildren();
 
     if (!transactions.length) {
       const empty = document.createElement("p");
       empty.className = "transaction-empty";
-      empty.textContent = "No payments or expenses recorded yet.";
+      empty.textContent = "No payments or expenses added yet.";
       list.append(empty);
       return;
     }
@@ -76,8 +84,8 @@ if (form && page.dataset.preview !== "true") {
       const remove = document.createElement("button");
 
       name.textContent = entry.name;
-      meta.textContent = `${entry.scheduledDate} · ${transactionLabel(entry)}`;
-      amount.textContent = `${entry.direction === "inflow" ? "+" : "−"}${money(entry.actualAmountMinor, currency)}`;
+      meta.textContent = `${entry.scheduledDate} · ${entry.status} · ${transactionLabel(entry)}`;
+      amount.textContent = `${entry.direction === "inflow" ? "+" : "−"}${money(entry.actualAmountMinor || entry.amountMinor, currency)}`;
       remove.className = "transaction-delete";
       remove.type = "button";
       remove.dataset.id = entry.id;
@@ -86,6 +94,113 @@ if (form && page.dataset.preview !== "true") {
       details.append(name, meta);
       row.append(details, amount, remove);
       list.append(row);
+    }
+  }
+
+  function shortMoney(amountMinor, currency) {
+    return new Intl.NumberFormat(undefined, { style: "currency", currency, notation: "compact", maximumFractionDigits: 1 }).format(amountMinor / 100);
+  }
+
+  function dayDifference(date, start) {
+    return Math.round((new Date(`${date}T00:00:00Z`) - new Date(`${start}T00:00:00Z`)) / 86400000);
+  }
+
+  function renderOverview(overview, currency) {
+    currentOverview = overview;
+    if (!overview) {
+      document.querySelector("#safe-amount").textContent = "—";
+      document.querySelector("#current-cash").textContent = "Not confirmed";
+      document.querySelector("#tax-reserve").textContent = "—";
+      document.querySelector("#minimum-buffer").textContent = "—";
+      document.querySelector("#safe-summary").lastChild.textContent = " Confirm your current cash to calculate a real 90-day outlook.";
+      document.querySelector("#risk-label").textContent = "Setup needed";
+      document.querySelector("#risk-detail").textContent = "Confirm current cash";
+      document.querySelector("#action-type").textContent = "First step";
+      document.querySelector("#action-title").textContent = "Confirm the cash currently available to your business.";
+      document.querySelector("#action-detail").textContent = "Required for forecast";
+      document.querySelector("#action-amount").textContent = "";
+      document.querySelector("#action-link").setAttribute("href", "#balance-form");
+      document.querySelector("#overview-chart").hidden = true;
+      document.querySelector("#chart-summary").innerHTML = "<span>01</span>Add a confirmed balance to start your 90-day projection.";
+      document.querySelector("#upcoming-list").innerHTML = '<p class="transaction-empty">No forecast is available until current cash is confirmed.</p>';
+      return;
+    }
+
+    document.querySelector("#overview-chart").hidden = false;
+    document.querySelector("#safe-amount").textContent = money(overview.safeToSpendMinor, currency);
+    document.querySelector("#current-cash").textContent = money(overview.currentCashMinor, currency);
+    document.querySelector("#tax-reserve").textContent = money(overview.taxReserveMinor, currency);
+    document.querySelector("#minimum-buffer").textContent = money(overview.minimumBufferMinor, currency);
+    const riskText = overview.risk === "normal" ? "On track" : overview.risk === "caution" ? "Caution" : "At risk";
+    document.querySelector("#risk-label").textContent = riskText;
+    document.querySelector("#risk-detail").textContent = overview.provisional ? "Balance confirmation needed" : `Based on data through ${overview.horizonEnd}`;
+    document.querySelector("#review-state").dataset.risk = overview.risk;
+    const summary = overview.provisional
+      ? "Your outlook is provisional because transactions were recorded after the last balance confirmation."
+      : overview.risk === "normal"
+        ? "Your protected cash stays intact for the next 90 days."
+        : overview.risk === "caution"
+          ? `Projected cash crosses your protected level on ${overview.firstBreachDate}.`
+          : `Projected cash falls below zero by ${overview.firstNegativeDate}.`;
+    document.querySelector("#safe-summary").lastChild.textContent = summary;
+
+    const recommendation = overview.recommendation;
+    document.querySelector("#action-type").textContent = recommendation.type;
+    document.querySelector("#action-title").textContent = recommendation.title;
+    document.querySelector("#action-detail").textContent = recommendation.detail;
+    document.querySelector("#action-amount").textContent = recommendation.amountMinor === null ? "" : money(recommendation.amountMinor, currency);
+    document.querySelector("#action-link").setAttribute("href", recommendation.type === "Invoice follow-up" ? "#transactions" : "#cash-plan");
+
+    const values = [...overview.points.map((point) => point.balanceMinor), overview.protectedMinor, 0];
+    const minimum = Math.min(...values);
+    const maximum = Math.max(...values);
+    const padding = Math.max((maximum - minimum) * 0.12, 100);
+    const chartMin = minimum - padding;
+    const chartMax = maximum + padding;
+    const range = chartMax - chartMin;
+    const x = (date) => (dayDifference(date, overview.horizonStart) / 90) * 900;
+    const y = (value) => 250 - ((value - chartMin) / range) * 250;
+    let line = `M0 ${y(overview.currentCashMinor).toFixed(1)}`;
+    for (const point of overview.points.slice(1)) line += ` H${x(point.date).toFixed(1)} V${y(point.balanceMinor).toFixed(1)}`;
+    line += " H900";
+    document.querySelector("#chart-line").setAttribute("d", line);
+    document.querySelector("#chart-area").setAttribute("d", `${line} V250 H0 Z`);
+    document.querySelector("#protected-zone").style.bottom = `${Math.max(0, Math.min(250, ((overview.protectedMinor - chartMin) / range) * 250)) + 28}px`;
+    document.querySelector("#protected-label").textContent = `Protected ${shortMoney(overview.protectedMinor, currency)}`;
+    const ticks = [chartMax, chartMax - range / 3, chartMax - (2 * range) / 3, chartMin];
+    ["#axis-max", "#axis-mid-high", "#axis-mid-low", "#axis-min"].forEach((selector, index) => {
+      document.querySelector(selector).textContent = shortMoney(ticks[index], currency);
+    });
+    document.querySelector("#overview-chart").setAttribute("aria-label", `Projected cash reaches a low of ${money(overview.lowestBalanceMinor, currency)} by ${overview.limitingDate}.`);
+    const difference = Math.abs(overview.lowestHeadroomMinor);
+    document.querySelector("#chart-summary").innerHTML = `<span>01</span>Your lowest projected balance is <strong>${money(overview.lowestBalanceMinor, currency)} on ${overview.limitingDate}</strong>, ${money(difference, currency)} ${overview.lowestHeadroomMinor >= 0 ? "above" : "below"} your protected level.`;
+
+    const upcomingList = document.querySelector("#upcoming-list");
+    const upcoming = overview.events.filter((entry) => dayDifference(entry.date, overview.horizonStart) <= 14).slice(0, 5);
+    upcomingList.replaceChildren();
+    if (!upcoming.length) {
+      const empty = document.createElement("p");
+      empty.className = "transaction-empty";
+      empty.textContent = "No projected payments or expenses in the next 14 days.";
+      upcomingList.append(empty);
+    }
+    for (const entry of upcoming) {
+      const row = document.createElement("div");
+      row.className = "ledger-row";
+      const days = dayDifference(entry.date, overview.horizonStart);
+      const timing = document.createElement("time");
+      timing.innerHTML = `<strong>${days === 0 ? "Now" : `+${days}`}</strong><span>${days === 0 ? "" : "days"}</span>`;
+      const details = document.createElement("div");
+      const name = document.createElement("strong");
+      const kind = document.createElement("span");
+      const amount = document.createElement("b");
+      name.textContent = entry.name;
+      kind.textContent = entry.direction === "inflow" ? "Projected income" : "Planned expense";
+      amount.className = entry.direction === "inflow" ? "money-in" : "";
+      amount.textContent = `${entry.direction === "inflow" ? "+" : "−"}${money(entry.amountMinor, currency)}`;
+      details.append(name, kind);
+      row.append(timing, details, amount);
+      upcomingList.append(row);
     }
   }
 
@@ -100,6 +215,7 @@ if (form && page.dataset.preview !== "true") {
     parties = directory.parties;
     form.dataset.currency = financials.currency || "USD";
     render(form.dataset.currency);
+    renderOverview(financials.overview, form.dataset.currency);
     renderParties();
     setDirection();
   }
@@ -156,17 +272,18 @@ if (form && page.dataset.preview !== "true") {
 
   function setDirection() {
     const inflow = form.elements.direction.value === "inflow";
+    const recorded = form.elements.timing.value === "recorded";
     form.querySelectorAll("[data-inflow-field]").forEach((field) => { field.hidden = !inflow; });
     form.querySelectorAll("[data-outflow-field]").forEach((field) => { field.hidden = inflow; });
     form.querySelector("[data-party-label]").textContent = inflow ? "Customer" : "Supplier";
     const category = form.elements.category;
     category.replaceChildren(...categories[inflow ? "inflow" : "outflow"].map(([value, label]) => new Option(label, value)));
     renderPartyOptions();
-    submit.textContent = inflow ? "Record payment" : "Record expense";
+    submit.textContent = recorded ? (inflow ? "Record payment" : "Record expense") : (inflow ? "Add expected income" : "Add planned expense");
   }
 
   form.addEventListener("change", (event) => {
-    if (event.target.name === "direction") setDirection();
+    if (event.target.name === "direction" || event.target.name === "timing") setDirection();
   });
 
   form.addEventListener("submit", async (event) => {
@@ -181,14 +298,15 @@ if (form && page.dataset.preview !== "true") {
     }
 
     const direction = form.elements.direction.value;
+    const recorded = form.elements.timing.value === "recorded";
     const amountMinor = Math.round(Number(amount) * 100);
     const payload = {
       direction,
       name: form.elements.name.value,
       amountMinor,
-      actualAmountMinor: amountMinor,
+      actualAmountMinor: recorded ? amountMinor : undefined,
       scheduledDate: form.elements.date.value,
-      status: "paid",
+      status: recorded ? "paid" : direction === "inflow" ? "expected" : "planned",
       partyId: form.elements.partyId.value || undefined,
       invoiceReference: direction === "inflow" ? form.elements.invoiceReference.value : undefined,
       category: form.elements.category.value,
@@ -207,7 +325,9 @@ if (form && page.dataset.preview !== "true") {
       dateInput.value = new Date().toISOString().slice(0, 10);
       setDirection();
       await load();
-      message.textContent = direction === "inflow" ? "Payment recorded." : "Expense recorded.";
+      message.textContent = recorded
+        ? direction === "inflow" ? "Payment recorded." : "Expense recorded."
+        : direction === "inflow" ? "Expected income added to the forecast." : "Planned expense added to the forecast.";
     } catch (error) {
       message.classList.add("error");
       message.textContent = error instanceof Error ? error.message : "Unable to record transaction.";
@@ -231,6 +351,62 @@ if (form && page.dataset.preview !== "true") {
       message.className = "transaction-message error";
       message.textContent = error instanceof Error ? error.message : "Unable to delete transaction.";
     }
+  });
+
+  balanceForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const balanceMessage = document.querySelector("#balance-message");
+    const value = balanceForm.elements.balance.value.trim();
+    if (!/^-?\d+(?:\.\d{1,2})?$/.test(value)) {
+      balanceMessage.className = "transaction-message error";
+      balanceMessage.textContent = "Enter a valid balance with up to two decimal places.";
+      return;
+    }
+    const button = balanceForm.querySelector("button");
+    button.disabled = true;
+    try {
+      const response = await fetch("/api/cash-snapshots", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ balanceMinor: Math.round(Number(value) * 100), effectiveDate: balanceForm.elements.effectiveDate.value }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to confirm balance.");
+      await load();
+      balanceMessage.className = "transaction-message";
+      balanceMessage.textContent = "Current cash confirmed and forecast updated.";
+    } catch (error) {
+      balanceMessage.className = "transaction-message error";
+      balanceMessage.textContent = error instanceof Error ? error.message : "Unable to confirm balance.";
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  scenarioForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const result = document.querySelector("#scenario-result");
+    const value = scenarioForm.elements.amount.value.trim();
+    const amount = /^\d+(?:\.\d{1,2})?$/.test(value) ? Math.round(Number(value) * 100) : 0;
+    const date = scenarioForm.elements.date.value;
+    if (!currentOverview) {
+      result.textContent = "Confirm current cash before running a scenario.";
+      return;
+    }
+    if (!amount || date < currentOverview.horizonStart || date >= currentOverview.horizonEnd) {
+      result.textContent = "Enter a positive amount and a date inside the current 90-day outlook.";
+      return;
+    }
+    const projectedAtDate = currentOverview.points
+      .filter((point) => point.date <= date)
+      .at(-1)?.balanceMinor ?? currentOverview.currentCashMinor;
+    const futureLow = Math.min(
+      projectedAtDate,
+      ...currentOverview.points.filter((point) => point.date >= date).map((point) => point.balanceMinor),
+    ) - amount;
+    const headroom = futureLow - currentOverview.protectedMinor;
+    const state = futureLow < 0 ? "at risk" : headroom < 0 ? "caution" : "within your protected plan";
+    result.textContent = `After this purchase, the lowest projected cash would be ${money(futureLow, form.dataset.currency)}: ${state}. This scenario was not saved.`;
   });
 
   partyForm.addEventListener("submit", async (event) => {

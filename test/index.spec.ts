@@ -181,6 +181,59 @@ describe("Finvayo Worker", () => {
     expect(data.entries).toEqual(expect.arrayContaining([expect.objectContaining({ amountMinor: 240000, status: "paid", actualAmountMinor: 240000 })]));
   });
 
+  it("calculates the 90-day overview from real workspace data", async () => {
+    const form = new FormData();
+    form.set("email", `overview-${crypto.randomUUID()}@example.com`);
+    form.set("password", "a-secure-example-password");
+    form.set("terms", "on");
+    const signup = await SELF.fetch("https://finvayo.test/auth/signup", { method: "POST", body: form, redirect: "manual" });
+    const cookie = signup.headers.get("set-cookie")?.split(";")[0] ?? "";
+    const headers = { cookie, origin: "https://finvayo.test", "content-type": "application/json" };
+    await SELF.fetch("https://finvayo.test/api/settings", {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ name: "Forecast Co", currency: "USD", timezone: "UTC", minimumBufferMinor: 10000, taxReserveMinor: 5000 }),
+    });
+    await SELF.fetch("https://finvayo.test/api/cash-snapshots", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ balanceMinor: 100000, effectiveDate: "2026-01-01" }),
+    });
+    await SELF.fetch("https://finvayo.test/api/cash-entries", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        direction: "inflow", name: "January invoice", amountMinor: 20000, scheduledDate: "2026-01-05",
+        status: "invoiced", category: "service_income",
+      }),
+    });
+    await SELF.fetch("https://finvayo.test/api/cash-entries", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        direction: "outflow", name: "Month-end subscription", amountMinor: 30000, scheduledDate: "2026-01-31",
+        status: "planned", category: "subscriptions", recurrence: "monthly",
+      }),
+    });
+
+    const response = await SELF.fetch("https://finvayo.test/api/financials", { headers: { cookie } });
+    const data = (await response.json()) as {
+      overview: {
+        currentCashMinor: number; protectedMinor: number; lowestBalanceMinor: number; safeToSpendMinor: number;
+        limitingDate: string; risk: string; events: Array<{ date: string }>;
+      };
+    };
+    expect(data.overview).toEqual(expect.objectContaining({
+      currentCashMinor: 100000,
+      protectedMinor: 15000,
+      lowestBalanceMinor: 30000,
+      safeToSpendMinor: 15000,
+      limitingDate: "2026-03-31",
+      risk: "normal",
+    }));
+    expect(data.overview.events.map((event) => event.date)).toEqual(["2026-01-05", "2026-01-31", "2026-02-28", "2026-03-31"]);
+  });
+
   it("records and deletes a paid business expense", async () => {
     const form = new FormData();
     form.set("email", `expense-${crypto.randomUUID()}@example.com`);

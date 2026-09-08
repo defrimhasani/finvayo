@@ -66,6 +66,144 @@ type CashEntryInput = {
   partyId?: unknown;
 };
 
+type FinancialEntry = {
+  id: string;
+  direction: "inflow" | "outflow";
+  name: string;
+  amountMinor: number;
+  scheduledDate: string;
+  status: string;
+  recurrence: string | null;
+  included: number;
+  completedAt: number | null;
+  partyName: string | null;
+  clientName: string | null;
+  invoiceReference: string | null;
+  category: string | null;
+};
+
+type CashSnapshot = { id: string; balanceMinor: number; effectiveDate: string; confirmedAt: number };
+
+function addDays(date: string, days: number): string {
+  const value = new Date(`${date}T00:00:00Z`);
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
+}
+
+function addMonths(date: string, offset: number): string {
+  const [year, month, day] = date.split("-").map(Number);
+  const monthIndex = month - 1 + offset;
+  const nextYear = year + Math.floor(monthIndex / 12);
+  const nextMonthIndex = ((monthIndex % 12) + 12) % 12;
+  const finalDay = new Date(Date.UTC(nextYear, nextMonthIndex + 1, 0)).getUTCDate();
+  return `${nextYear}-${String(nextMonthIndex + 1).padStart(2, "0")}-${String(Math.min(day, finalDay)).padStart(2, "0")}`;
+}
+
+function buildOverview(
+  snapshot: CashSnapshot | null,
+  entries: FinancialEntry[],
+  minimumBufferMinor: number,
+  taxReserveMinor: number,
+) {
+  if (!snapshot) return null;
+  const horizonEnd = addDays(snapshot.effectiveDate, 90);
+  const events: Array<{ id: string; name: string; direction: "inflow" | "outflow"; amountMinor: number; date: string; status: string; partyName: string | null; invoiceReference: string | null; category: string | null }> = [];
+
+  for (const entry of entries) {
+    const projectedInflow = entry.direction === "inflow" && (entry.status === "expected" || entry.status === "invoiced");
+    const projectedOutflow = entry.direction === "outflow" && entry.status === "planned";
+    if (!entry.included || (!projectedInflow && !projectedOutflow)) continue;
+    let occurrence = 0;
+    let date = entry.scheduledDate;
+    if (entry.recurrence === "monthly" && date < snapshot.effectiveDate) {
+      const [startYear, startMonth] = entry.scheduledDate.split("-").map(Number);
+      const [endYear, endMonth] = snapshot.effectiveDate.split("-").map(Number);
+      occurrence = Math.max(0, (endYear - startYear) * 12 + endMonth - startMonth);
+      date = addMonths(entry.scheduledDate, occurrence);
+      if (date < snapshot.effectiveDate) {
+        occurrence += 1;
+        date = addMonths(entry.scheduledDate, occurrence);
+      }
+    }
+    while (date < horizonEnd) {
+      if (date >= snapshot.effectiveDate) {
+        events.push({
+          id: entry.id,
+          name: entry.name,
+          direction: entry.direction,
+          amountMinor: entry.amountMinor,
+          date,
+          status: entry.status,
+          partyName: entry.partyName || entry.clientName,
+          invoiceReference: entry.invoiceReference,
+          category: entry.category,
+        });
+      }
+      if (entry.recurrence !== "monthly") break;
+      occurrence += 1;
+      date = addMonths(entry.scheduledDate, occurrence);
+    }
+  }
+
+  events.sort((first, second) => first.date.localeCompare(second.date) || first.id.localeCompare(second.id));
+  const protectedMinor = minimumBufferMinor + taxReserveMinor;
+  let balanceMinor = snapshot.balanceMinor;
+  let lowestBalanceMinor = balanceMinor;
+  let lowestHeadroomMinor = balanceMinor - protectedMinor;
+  let limitingDate = snapshot.effectiveDate;
+  let firstBreachDate: string | null = balanceMinor < protectedMinor ? snapshot.effectiveDate : null;
+  let firstNegativeDate: string | null = balanceMinor < 0 ? snapshot.effectiveDate : null;
+  const points = [{ date: snapshot.effectiveDate, balanceMinor }];
+  for (let index = 0; index < events.length; ) {
+    const date = events[index].date;
+    let dailyChangeMinor = 0;
+    while (index < events.length && events[index].date === date) {
+      dailyChangeMinor += events[index].direction === "inflow" ? events[index].amountMinor : -events[index].amountMinor;
+      index += 1;
+    }
+    balanceMinor += dailyChangeMinor;
+    const headroom = balanceMinor - protectedMinor;
+    if (balanceMinor < lowestBalanceMinor) lowestBalanceMinor = balanceMinor;
+    if (headroom < lowestHeadroomMinor) {
+      lowestHeadroomMinor = headroom;
+      limitingDate = date;
+    }
+    if (!firstBreachDate && headroom < 0) firstBreachDate = date;
+    if (!firstNegativeDate && balanceMinor < 0) firstNegativeDate = date;
+    points.push({ date, balanceMinor });
+  }
+
+  const overdue = entries
+    .filter((entry) => entry.direction === "inflow" && entry.status === "overdue")
+    .sort((first, second) => first.scheduledDate.localeCompare(second.scheduledDate))[0];
+  const nextOutflow = events.find((entry) => entry.direction === "outflow");
+  const recommendation = overdue
+    ? { type: "Invoice follow-up", title: `${overdue.partyName || overdue.clientName || overdue.name} is overdue.`, amountMinor: overdue.amountMinor, detail: overdue.invoiceReference || overdue.name }
+    : nextOutflow
+      ? { type: "Upcoming expense", title: `Prepare for ${nextOutflow.name}.`, amountMinor: nextOutflow.amountMinor, detail: nextOutflow.date }
+      : { type: "Plan ready", title: "Add expected income and expenses to sharpen your outlook.", amountMinor: null, detail: "Next 90 days" };
+  const provisional = entries.some((entry) => entry.status === "paid" && Number(entry.completedAt) >= snapshot.confirmedAt);
+  return {
+    safeToSpendMinor: Math.max(0, lowestHeadroomMinor),
+    currentCashMinor: snapshot.balanceMinor,
+    minimumBufferMinor,
+    taxReserveMinor,
+    protectedMinor,
+    lowestBalanceMinor,
+    lowestHeadroomMinor,
+    limitingDate,
+    firstBreachDate,
+    firstNegativeDate,
+    risk: lowestBalanceMinor < 0 ? "at_risk" : lowestHeadroomMinor < 0 ? "caution" : "normal",
+    provisional,
+    horizonStart: snapshot.effectiveDate,
+    horizonEnd,
+    points,
+    events,
+    recommendation,
+  };
+}
+
 function json(data: unknown, status = 200): Response {
   return Response.json(data, { status, headers: JSON_HEADERS });
 }
@@ -109,7 +247,13 @@ export async function getFinancials(request: Request, db: D1Database): Promise<R
   if (!user) return json({ error: "Unauthorized" }, 401);
 
   const [workspace, snapshot, entries] = await Promise.all([
-    db.prepare("SELECT currency FROM workspaces WHERE id = ?").bind(user.workspaceId).first<{ currency: string }>(),
+    db
+      .prepare(
+        `SELECT currency, timezone, minimum_buffer_minor AS minimumBufferMinor,
+          tax_reserve_minor AS taxReserveMinor FROM workspaces WHERE id = ?`,
+      )
+      .bind(user.workspaceId)
+      .first<{ currency: string; timezone: string; minimumBufferMinor: number; taxReserveMinor: number }>(),
     db
       .prepare(
         `SELECT id, balance_minor AS balanceMinor, effective_date AS effectiveDate, confirmed_at AS confirmedAt
@@ -117,7 +261,7 @@ export async function getFinancials(request: Request, db: D1Database): Promise<R
          ORDER BY effective_date DESC, confirmed_at DESC LIMIT 1`,
       )
       .bind(user.workspaceId)
-      .first(),
+      .first<CashSnapshot>(),
     db
       .prepare(
         `SELECT id, direction, name, amount_minor AS amountMinor, scheduled_date AS scheduledDate,
@@ -129,10 +273,13 @@ export async function getFinancials(request: Request, db: D1Database): Promise<R
          FROM cash_entries WHERE workspace_id = ? ORDER BY scheduled_date, created_at`,
       )
       .bind(user.workspaceId)
-      .all(),
+      .all<FinancialEntry>(),
   ]);
 
-  return json({ currency: workspace?.currency, snapshot: snapshot ?? null, entries: entries.results });
+  const overview = workspace
+    ? buildOverview(snapshot ?? null, entries.results, workspace.minimumBufferMinor, workspace.taxReserveMinor)
+    : null;
+  return json({ currency: workspace?.currency, timezone: workspace?.timezone, snapshot: snapshot ?? null, entries: entries.results, overview });
 }
 
 export async function createCashSnapshot(request: Request, db: D1Database): Promise<Response> {

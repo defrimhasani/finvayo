@@ -901,6 +901,26 @@
   gap: 1rem;
 }
 
+.balance-form {
+  display: grid;
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+  grid-template-columns: 1fr 1fr auto;
+  align-items: end;
+  gap: 0.65rem;
+}
+
+.balance-form .button {
+  min-height: 46px;
+  padding-inline: 1rem;
+  cursor: pointer;
+}
+
+.balance-form .transaction-message {
+  grid-column: 1 / -1;
+}
+
 .safe-breakdown span,
 .safe-breakdown strong {
   display: block;
@@ -1219,7 +1239,7 @@
   gap: 0.5rem;
 }
 
-.scenario-fields span {
+.scenario-fields > span {
   padding: 0.9rem;
   border: 1px solid #c6c1b5;
   color: #8a8e88;
@@ -1385,6 +1405,10 @@
   }
 
   .safe-breakdown {
+    grid-template-columns: 1fr;
+  }
+
+  .balance-form {
     grid-template-columns: 1fr;
   }
 

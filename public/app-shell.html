@@ -42,25 +42,31 @@
       {{BANNER}}
       <header class="workspace-header">
         <div><p class="app-kicker">Your cash outlook</p><h1>Good to see you, {{NAME}}.</h1></div>
-        <div class="review-state"><i></i><span>Example plan</span><strong>Ready to personalize</strong></div>
+        <div class="review-state" id="review-state"><i></i><span id="risk-label">Example plan</span><strong id="risk-detail">Ready to personalize</strong></div>
       </header>
 
       <section class="decision-grid" aria-label="Current cash position">
         <article class="safe-card">
           <div class="card-heading"><span>Safe to spend now</span><button type="button" aria-label="About safe to spend">?</button></div>
-          <p class="safe-amount">$4,280</p>
-          <p class="safe-summary"><i></i>Your protected cash stays intact for the next 90 days.</p>
+          <p class="safe-amount" id="safe-amount">$4,280</p>
+          <p class="safe-summary" id="safe-summary"><i></i>Your protected cash stays intact for the next 90 days.</p>
           <div class="safe-breakdown">
-            <div><span>Current cash</span><strong>$11,420</strong></div>
-            <div><span>Tax reserved</span><strong>$2,100</strong></div>
-            <div><span>Minimum buffer</span><strong>$2,000</strong></div>
+            <div><span>Current cash</span><strong id="current-cash">$11,420</strong></div>
+            <div><span>Tax reserved</span><strong id="tax-reserve">$2,100</strong></div>
+            <div><span>Minimum buffer</span><strong id="minimum-buffer">$2,000</strong></div>
           </div>
+          <form class="balance-form" id="balance-form">
+            <label class="transaction-field"><span>Confirm current cash</span><input name="balance" inputmode="decimal" required placeholder="0.00" /></label>
+            <label class="transaction-field"><span>As of</span><input name="effectiveDate" type="date" required /></label>
+            <button class="button button-secondary" type="submit">Confirm balance</button>
+            <p class="transaction-message" id="balance-message" role="status" aria-live="polite"></p>
+          </form>
         </article>
         <article class="action-card">
           <div class="card-heading"><span>Recommended action</span><small>Today</small></div>
-          <p class="action-type">Invoice follow-up</p><h2>Acme Studio is 8 days overdue.</h2>
-          <div class="action-meta"><span>INV-024</span><strong>$2,400</strong></div>
-          <a href="#follow-up">Prepare follow-up <span aria-hidden="true">→</span></a>
+          <p class="action-type" id="action-type">Invoice follow-up</p><h2 id="action-title">Acme Studio is 8 days overdue.</h2>
+          <div class="action-meta"><span id="action-detail">INV-024</span><strong id="action-amount">$2,400</strong></div>
+          <a id="action-link" href="#transactions">Review transactions <span aria-hidden="true">→</span></a>
         </article>
       </section>
 
@@ -76,6 +82,11 @@
               <label><input type="radio" name="direction" value="inflow" checked /><span>Payment received</span></label>
               <label><input type="radio" name="direction" value="outflow" /><span>Expense paid</span></label>
             </fieldset>
+            <fieldset class="transaction-kind transaction-timing">
+              <legend>Timing</legend>
+              <label><input type="radio" name="timing" value="recorded" checked /><span>Already happened</span></label>
+              <label><input type="radio" name="timing" value="planned" /><span>Expected / planned</span></label>
+            </fieldset>
             <label class="transaction-field"><span>Description</span><input name="name" maxlength="120" required placeholder="September retainer" /></label>
             <div class="transaction-fields">
               <label class="transaction-field"><span>Amount</span><input name="amount" inputmode="decimal" required placeholder="0.00" /></label>
@@ -88,8 +99,8 @@
             <p class="transaction-message" id="transaction-message" role="status" aria-live="polite"></p>
           </form>
           <div class="transaction-history">
-            <div class="section-row"><div><p class="app-kicker">Recorded</p><h2>Transaction history</h2></div><span id="transaction-count">0 entries</span></div>
-            <div id="transaction-list"><p class="transaction-empty">No payments or expenses recorded yet.</p></div>
+            <div class="section-row"><div><p class="app-kicker">Cash entries</p><h2>Payments &amp; expenses</h2></div><span id="transaction-count">0 entries</span></div>
+            <div id="transaction-list"><p class="transaction-empty">No payments or expenses added yet.</p></div>
           </div>
         </div>
       </section>
@@ -124,36 +135,36 @@
           <div><p class="app-kicker">Cash outlook</p><h2>The next 90 days</h2></div>
           <div class="legend"><span><i class="solid"></i>Projected cash</span><span><i class="dashed"></i>Protected level</span></div>
         </div>
-        <div class="app-chart" role="img" aria-label="Example projected cash remains above the protected level for the next 90 days.">
-          <div class="axis"><span>$14k</span><span>$10k</span><span>$6k</span><span>$2k</span></div>
+        <div class="app-chart" id="overview-chart" role="img" aria-label="Example projected cash remains above the protected level for the next 90 days.">
+          <div class="axis"><span id="axis-max">$14k</span><span id="axis-mid-high">$10k</span><span id="axis-mid-low">$6k</span><span id="axis-min">$2k</span></div>
           <div class="plot">
-            <div class="protected-zone"><span>Protected $4,100</span></div>
+            <div class="protected-zone" id="protected-zone"><span id="protected-label">Protected $4,100</span></div>
             <svg viewBox="0 0 900 250" preserveAspectRatio="none" aria-hidden="true">
-              <path class="app-area" d="M0 54H95V80H210V36H315V104H410V82H520V150H635V122H760V75H900V94V250H0Z" />
-              <path class="app-line" d="M0 54H95V80H210V36H315V104H410V82H520V150H635V122H760V75H900V94" />
-              <circle cx="520" cy="150" r="6" />
+              <path class="app-area" id="chart-area" d="M0 54H95V80H210V36H315V104H410V82H520V150H635V122H760V75H900V94V250H0Z" />
+              <path class="app-line" id="chart-line" d="M0 54H95V80H210V36H315V104H410V82H520V150H635V122H760V75H900V94" />
             </svg>
-            <div class="event event-in" style="left: 23%"><span>+ $3,200</span><small>Client payment</small></div>
-            <div class="event event-out" style="left: 55%"><span>− $1,800</span><small>Quarterly tax</small></div>
             <div class="plot-dates"><span>Today</span><span>30 days</span><span>60 days</span><span>90 days</span></div>
           </div>
         </div>
-        <p class="chart-summary"><span>01</span>Your lowest point is <strong>$5,940 in 40 days</strong>, $1,840 above your protected level.</p>
+        <p class="chart-summary" id="chart-summary"><span>01</span>Your lowest point is <strong>$5,940 in 40 days</strong>, $1,840 above your protected level.</p>
       </section>
 
       <section class="lower-grid">
         <article class="ledger-card">
-          <div class="section-row"><div><p class="app-kicker">Coming up</p><h2>Next 14 days</h2></div><a href="#all">View cash plan</a></div>
-          <div class="ledger-row"><time><strong>+4</strong><span>days</span></time><div><strong>Northstar retainer</strong><span>Expected income</span></div><b class="money-in">+$3,200</b></div>
-          <div class="ledger-row"><time><strong>+7</strong><span>days</span></time><div><strong>Contractor payment</strong><span>Planned expense</span></div><b>−$1,100</b></div>
-          <div class="ledger-row"><time><strong>+10</strong><span>days</span></time><div><strong>Software renewals</strong><span>3 recurring expenses</span></div><b>−$284</b></div>
+          <div class="section-row"><div><p class="app-kicker">Coming up</p><h2>Next 14 days</h2></div><a href="#transactions">Manage entries</a></div>
+          <div id="upcoming-list"><div class="ledger-row"><time><strong>+4</strong><span>days</span></time><div><strong>Northstar retainer</strong><span>Expected income</span></div><b class="money-in">+$3,200</b></div></div>
         </article>
         <article class="scenario-card" id="scenario">
           <p class="app-kicker">Before you commit</p><h2>Check a purchase.</h2>
           <p>See how a new expense changes your protected cash before adding it to the plan.</p>
-          <div class="scenario-fields" aria-hidden="true"><span>$ Amount</span><span>Payment date</span></div>
-          <button class="button button-primary" type="button" disabled>Run a scenario</button>
-          <small>Available after you complete setup.</small>
+          <form id="scenario-form">
+            <div class="scenario-fields">
+              <label class="transaction-field"><span>Amount</span><input name="amount" inputmode="decimal" required placeholder="0.00" /></label>
+              <label class="transaction-field"><span>Payment date</span><input name="date" type="date" required /></label>
+            </div>
+            <button class="button button-primary" type="submit">Run scenario</button>
+          </form>
+          <small id="scenario-result" role="status" aria-live="polite">Uses your current 90-day outlook and does not save anything.</small>
         </article>
       </section>
     </main>
