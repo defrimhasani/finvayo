@@ -32,4 +32,31 @@ describe("Finvayo Worker", () => {
     expect(response.headers.get("content-type")).toContain("text/html");
     expect(html).toContain("Know what your business can safely spend");
   });
+
+  it("serves the login experience without caching it", async () => {
+    const response = await SELF.fetch("https://finvayo.test/login/");
+    const html = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store, private");
+    expect(html).toContain("Welcome to Finvayo");
+    expect(html).toContain("Private beta access is currently invitation-only");
+  });
+
+  it("redirects the protected app entry to login", async () => {
+    const response = await SELF.fetch("https://finvayo.test/app", { redirect: "manual" });
+
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("https://finvayo.test/login?next=/app");
+  });
+
+  it("serves the no-cache product preview shell", async () => {
+    const response = await SELF.fetch("https://finvayo.test/app/preview/");
+    const html = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store, private");
+    expect(html).toContain("Safe to spend now");
+    expect(html).toContain("This workspace uses sample data");
+  });
 });
