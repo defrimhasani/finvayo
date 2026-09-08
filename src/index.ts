@@ -124,59 +124,77 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
   return redirect(request, "/app", sessionCookie(await createSession(env.DB, user.id)));
 }
 
-export default {
-  async fetch(request, env): Promise<Response> {
-    const url = new URL(request.url);
+async function handleRequest(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
 
-    if (url.pathname === "/health") {
-      if (request.method !== "GET" && request.method !== "HEAD") {
-        return Response.json(
-          { error: "Method not allowed" },
-          { status: 405, headers: { ...JSON_HEADERS, allow: "GET, HEAD" } },
-        );
-      }
-
+  if (url.pathname === "/health") {
+    if (request.method !== "GET" && request.method !== "HEAD") {
       return Response.json(
-        {
-          status: "ok",
-          service: "finvayo",
-        },
-        { headers: JSON_HEADERS },
+        { error: "Method not allowed" },
+        { status: 405, headers: { ...JSON_HEADERS, allow: "GET, HEAD" } },
       );
     }
 
-    if (url.pathname === "/auth/signup" && request.method === "POST") return handleSignup(request, env);
-    if (url.pathname === "/auth/login" && request.method === "POST") return handleLogin(request, env);
-    if (url.pathname === "/auth/logout" && request.method === "POST") {
-      if (!sameOrigin(request)) return new Response("Forbidden", { status: 403, headers: PAGE_HEADERS });
-      await revokeSession(request, env.DB);
-      return redirect(request, "/login", clearSessionCookie);
+    return Response.json(
+      {
+        status: "ok",
+        service: "finvayo",
+      },
+      { headers: JSON_HEADERS },
+    );
+  }
+
+  if (url.pathname === "/auth/signup" && request.method === "POST") return handleSignup(request, env);
+  if (url.pathname === "/auth/login" && request.method === "POST") return handleLogin(request, env);
+  if (url.pathname === "/auth/logout" && request.method === "POST") {
+    if (!sameOrigin(request)) return new Response("Forbidden", { status: 403, headers: PAGE_HEADERS });
+    await revokeSession(request, env.DB);
+    return redirect(request, "/login", clearSessionCookie);
+  }
+
+  if (url.pathname.startsWith("/api/")) {
+    return Response.json({ error: "Not found" }, { status: 404, headers: JSON_HEADERS });
+  }
+
+  if (url.pathname === "/app" || url.pathname === "/app/") {
+    return renderApp(request, env, false);
+  }
+
+  if (url.pathname === "/app/preview" || url.pathname === "/app/preview/") {
+    return renderApp(request, env, true);
+  }
+
+  if (url.pathname === "/app-shell.html") {
+    return new Response("Not found", { status: 404, headers: PAGE_HEADERS });
+  }
+
+  const response = await env.ASSETS.fetch(request);
+
+  if (url.pathname.startsWith("/login") || url.pathname.startsWith("/signup") || url.pathname.startsWith("/app/")) {
+    const headers = new Headers(response.headers);
+    for (const [name, value] of Object.entries(PAGE_HEADERS)) headers.set(name, value);
+    return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+  }
+
+  return response;
+}
+
+export default {
+  async fetch(request, env): Promise<Response> {
+    try {
+      return await handleRequest(request, env);
+    } catch (error) {
+      const url = new URL(request.url);
+      console.error("Unhandled request error", {
+        error: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : String(error),
+        method: request.method,
+        pathname: url.pathname,
+        rayId: request.headers.get("cf-ray"),
+      });
+      if (url.pathname.startsWith("/api/")) {
+        return Response.json({ error: "Service temporarily unavailable" }, { status: 503, headers: JSON_HEADERS });
+      }
+      return new Response("Service temporarily unavailable", { status: 503, headers: PAGE_HEADERS });
     }
-
-    if (url.pathname.startsWith("/api/")) {
-      return Response.json({ error: "Not found" }, { status: 404, headers: JSON_HEADERS });
-    }
-
-    if (url.pathname === "/app" || url.pathname === "/app/") {
-      return renderApp(request, env, false);
-    }
-
-    if (url.pathname === "/app/preview" || url.pathname === "/app/preview/") {
-      return renderApp(request, env, true);
-    }
-
-    if (url.pathname === "/app-shell.html") {
-      return new Response("Not found", { status: 404, headers: PAGE_HEADERS });
-    }
-
-    const response = await env.ASSETS.fetch(request);
-
-    if (url.pathname.startsWith("/login") || url.pathname.startsWith("/signup") || url.pathname.startsWith("/app/")) {
-      const headers = new Headers(response.headers);
-      for (const [name, value] of Object.entries(PAGE_HEADERS)) headers.set(name, value);
-      return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
-    }
-
-    return response;
   },
 } satisfies ExportedHandler<Env>;

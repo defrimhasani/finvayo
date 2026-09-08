@@ -1,5 +1,10 @@
 import { SELF } from "cloudflare:test";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import worker from "../src/index";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("Finvayo Worker", () => {
   it("reports service health", async () => {
@@ -116,5 +121,23 @@ describe("Finvayo Worker", () => {
     expect(response.headers.get("cache-control")).toBe("no-store, private");
     expect(html).toContain("Safe to spend now");
     expect(html).toContain("This workspace uses sample data");
+  });
+
+  it("returns a controlled response when a request handler throws", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const env = {
+      ASSETS: { fetch: () => Promise.reject(new Error("Asset service unavailable")) },
+    } as unknown as Env;
+
+    const request = new Request("https://finvayo.test/") as Parameters<typeof worker.fetch>[0];
+    const response = await worker.fetch(request, env);
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("cache-control")).toBe("no-store, private");
+    await expect(response.text()).resolves.toBe("Service temporarily unavailable");
+    expect(consoleError).toHaveBeenCalledWith(
+      "Unhandled request error",
+      expect.objectContaining({ method: "GET", pathname: "/", rayId: null }),
+    );
   });
 });
