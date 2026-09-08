@@ -3,7 +3,7 @@
 **Status:** Proposed implementation plan  
 **Date:** 2026-09-08  
 **Product source:** [PRD.md](./PRD.md)  
-**Target:** Private paid beta on `finvayo.com`
+**Target:** Self-service paid launch on `finvayo.com`
 
 ---
 
@@ -20,7 +20,7 @@ Ship a trustworthy, production-ready MVP that lets a freelancer or small service
 7. Start, manage, and cancel a paid subscription.
 8. Export or delete their data.
 
-The first release is a private beta, not a broad public launch. The objective is to validate repeated weekly use and willingness to pay with 20 to 30 qualified users.
+The first release is self-service: any eligible visitor can create an account, start a 14-day trial, create a workspace, and subscribe without approval or founder intervention. Initial acquisition remains deliberately small so behavior and support can be observed across the first 20 to 30 users.
 
 ---
 
@@ -40,7 +40,7 @@ As of this document's date, Workers Paid includes enough capacity for the MVP:
 - Seven days of Workers Logs retention
 - No Cloudflare bandwidth or D1 egress charge
 
-The expected Cloudflare application cost at private-beta scale is the existing `$5/month`, provided usage remains within the included quotas. Stripe fees, email delivery, domain registration, and required alerting/error monitoring are separate.
+The expected Cloudflare application cost at initial-launch scale is the existing `$5/month`, provided usage remains within the included quotas. Stripe fees, email delivery, domain registration, and required alerting/error monitoring are separate.
 
 ### 2.2 Product Architecture
 
@@ -82,7 +82,7 @@ The implementation phase may choose current compatible versions, but the intende
 - **Source control:** Private GitHub repository
 - **CI/CD:** GitHub Actions and Wrangler
 - **Product analytics:** Minimal first-party events stored without financial values or client names
-- **Operational errors:** Structured Workers Logs plus external synthetic/error alerting before the first paid beta user
+- **Operational errors:** Structured Workers Logs plus external synthetic/error alerting before the first paying customer
 
 Do not add R2, KV, Durable Objects, Queues, Workflows, or an AI provider until a concrete use case requires them.
 
@@ -120,7 +120,7 @@ The MVP supports one owner and one workspace per verified user. Trial eligibilit
 
 - Store money as integer minor units, such as cents, never floating-point values.
 - Store one ISO 4217 currency code per workspace.
-- Support USD, EUR, and GBP workspace currencies in the private beta and reject mixed-currency entries.
+- Support USD, EUR, and GBP workspace currencies at launch and reject mixed-currency entries.
 - Make workspace currency immutable after the first cash snapshot or entry; changing it requires deleting all monetary data and explicitly starting a new plan.
 - Enforce a maximum absolute entry and aggregate value below JavaScript's safe-integer limit, with both application validation and database checks.
 - Perform calculations server-side using deterministic functions.
@@ -208,14 +208,14 @@ Every workspace-owned row must carry `workspace_id`; every query must scope by t
 
 ### 4.1 Initial Offer
 
-- One product: **Finvayo Founding Plan**
+- One product: **Finvayo Launch Plan**
 - Monthly price: `$9`
 - Annual price: `$90`
 - Trial: 14 days
 - Payment method: not required to start the trial
 - Trial starts when the workspace is created
 - All MVP features are available during the trial
-- No permanent free tier in the first paid beta
+- No permanent free tier at launch
 - Subscription billing currency is USD and is independent of the workspace's planning currency
 
 Create separate Stripe test and live products and prices. Store Stripe price IDs as environment configuration, never hard-code price amounts into access-control logic.
@@ -280,7 +280,7 @@ Before live billing:
 
 - Create the Stripe account under the correct legal business or sole-proprietor identity.
 - Complete identity and payout verification.
-- Confirm the Stripe account can charge the beta's USD prices and decide the supported customer countries.
+- Confirm the Stripe account can charge the launch plan's USD prices and decide the supported customer countries.
 - Configure business name, statement descriptor, support email, receipt emails, and customer portal.
 - Determine VAT/sales-tax obligations with a qualified adviser.
 - Enable Stripe Tax only if the legal and commercial decision requires it.
@@ -288,9 +288,9 @@ Before live billing:
 - Capture affirmative acceptance with timestamp and policy version where legally appropriate.
 - Test monthly, annual, failed-payment, cancellation, refund, and webhook-replay paths.
 
-For beta operations, a full discretionary refund cancels renewal but leaves access through the already recorded paid-through date unless law or fraud handling requires immediate suspension. A partial refund does not alter access. A dispute places the workspace in read-only mode pending review. Handle or reconcile refund and dispute events and document any manual override in the audit log.
+For initial operations, a full discretionary refund cancels renewal but leaves access through the already recorded paid-through date unless law or fraud handling requires immediate suspension. A partial refund does not alter access. A dispute places the workspace in read-only mode pending review. Handle or reconcile refund and dispute events and document any manual override in the audit log.
 
-Initial refund policy recommendation: provide a clear 14-day refund window for the first charge, subject to applicable consumer law, and process manually in Stripe during beta.
+Initial refund policy recommendation: provide a clear 14-day refund window for the first charge, subject to applicable consumer law, and process refunds manually in Stripe at launch.
 
 ---
 
@@ -309,7 +309,7 @@ Initial refund policy recommendation: provide a clear 14-day refund window for t
 
 Never use production financial data in local or staging. Seed synthetic scenarios covering normal, caution, at-risk, overdue, recurring, and month-end behavior.
 
-Before creating production D1, decide the beta launch jurisdictions, privacy roles, and required D1 jurisdiction. D1 jurisdiction is chosen at creation, so production provisioning follows that decision rather than preceding it.
+Before creating production D1, decide the launch jurisdictions, privacy roles, and required D1 jurisdiction. D1 jurisdiction is chosen at creation, so production provisioning follows that decision rather than preceding it.
 
 ---
 
@@ -353,7 +353,7 @@ The durations below assume one experienced full-time product engineer with perio
 - Build a manual 90-day forecast prototype for five participants.
 - Test the language “safe to spend,” the conservative treatment of overdue income, and willingness to complete a weekly review.
 - Record the top three decisions participants need to make.
-- Confirm at least five beta candidates before implementing billing.
+- Confirm at least five likely early users before implementing billing.
 
 #### Exit Criteria
 
@@ -487,7 +487,7 @@ If these criteria fail, revise the PRD before continuing with the full applicati
 - Duplicate and out-of-order webhooks do not corrupt state.
 - Failed payment, cancellation, period end, and reactivation behave as documented.
 - No card details enter Finvayo's application or logs.
-- Any complimentary beta access is an explicit audited entitlement with issuer, reason, start/end dates, precedence over billing state, and revocation behavior.
+- Any complimentary access is an explicit audited entitlement with issuer, reason, start/end dates, precedence over billing state, and revocation behavior. It is not required for ordinary registration.
 
 ### Phase 7: Privacy, Data Control, and Operational Readiness
 
@@ -498,7 +498,7 @@ If these criteria fail, revise the PRD before continuing with the full applicati
 - Implement export in a portable machine-readable format and a human-readable summary.
 - Implement deletion with a confirmation step, recent-authentication check, and documented delay.
 - On deletion, first cancel Stripe auto-renewal, confirm the Stripe result, retain the minimum billing linkage needed for refunds and webhook idempotency, revoke sessions, then delete product data. Test active, past-due, canceled, and webhook-after-deletion cases.
-- Define workspace deletion and user-account deletion separately; in the one-workspace beta, account deletion performs both.
+- Define workspace deletion and user-account deletion separately; in the one-workspace launch model, account deletion performs both.
 - Create a retention matrix covering product data, client/invoice data, authentication, billing, audit, analytics, inactive workspaces, and backups, including purpose, legal basis, duration, deletion method, and restore-time erasure handling.
 - Define Finvayo's controller/processor role, supported jurisdictions, subprocessors, international transfers, data-subject request process, complaint route, and treatment of client data entered by users before collecting real data.
 - Publish Privacy Policy, Terms, Refund Policy, cookie disclosure, and security contact.
@@ -558,7 +558,7 @@ On manually approved release:
 3. Run backward-compatible production migrations.
 4. Upload the verified immutable bundle with production bindings without routing traffic to it.
 5. Run version-preview smoke tests where bindings permit.
-6. Check post-migration invariants, then gradually promote the version or release first to an internal/beta canary cohort.
+6. Check post-migration invariants, then gradually promote the version or release first to internal test accounts.
 7. Run synthetic checks for the landing page, authentication request, app shell, health route, and billing endpoint.
 8. Observe errors, latency, authentication, and webhooks for at least 30 minutes.
 9. Record the release version and outcome.
@@ -578,7 +578,7 @@ On manually approved release:
 - Code rollback, Time Travel recovery decision points, and database restore procedures are tested.
 - Secrets exist only in environment-specific secret stores.
 
-### Phase 9: Pre-Launch QA and Private Beta
+### Phase 9: Pre-Launch QA and Self-Service Rollout
 
 **Duration:** 3 to 5 days
 
@@ -590,10 +590,10 @@ On manually approved release:
 - Test realistic data sets with zero, large, overdue, recurring, month-end, and negative-cash cases.
 - Conduct an authorization and webhook threat review.
 - Verify analytics events against the privacy rules.
-- Invite five pilot users first; observe setup and their first weekly return.
+- Open registration to five pilot users first without manually approving individual accounts; observe setup and their first weekly return.
 - Resolve calculation, trust, access, and data-loss defects before expanding.
-- Expand gradually to 20 to 30 invited users.
-- Charge founding users only after live Stripe and legal readiness are complete.
+- Increase acquisition gradually until 20 to 30 users have registered through the same self-service flow.
+- Enable paid conversion only after live Stripe and legal readiness are complete.
 - Create canonical forecast fixtures with exact expected balances, reserves, risk states, and safe-to-spend values for release sign-off.
 
 #### Exit Criteria
@@ -704,7 +704,7 @@ Alert the founder immediately when:
 - Production migration or backup fails.
 - Cloudflare usage unexpectedly accelerates toward paid overage.
 
-Workers Logs retain seven days on Workers Paid, so external synthetic/error alerting is mandatory for paid beta. Billing failures also create durable, sanitized operational records. Alert destinations and escalation behavior must be tested end to end.
+Workers Logs retain seven days on Workers Paid, so external synthetic/error alerting is mandatory before accepting payment. Billing failures also create durable, sanitized operational records. Alert destinations and escalation behavior must be tested end to end.
 
 ---
 
@@ -757,9 +757,9 @@ Automate the stable critical paths. Keep a concise manual release checklist for 
 
 ## 10. Initial Cost Envelope
 
-| Service | Expected beta cost | Notes |
+| Service | Expected launch cost | Notes |
 |---|---:|---|
-| Cloudflare Workers Paid | `$5/month` | Existing plan if confirmed; included usage should cover beta |
+| Cloudflare Workers Paid | `$5/month` | Existing plan if confirmed; included usage should cover initial launch |
 | D1 | `$0 incremental` | Expected within Workers Paid inclusion |
 | Static assets and bandwidth | `$0 incremental` | Static requests and egress included under current pricing |
 | Turnstile | `$0 expected` | Protect authentication and public forms |
@@ -774,7 +774,7 @@ Set a practical operating alert at `$20` of unexpected Cloudflare overage and re
 
 ## 11. Definition of Production-Ready
 
-Finvayo is production-ready for a private paid beta only when all of the following are true:
+Finvayo is production-ready for a self-service paid launch only when all of the following are true:
 
 - Product validation gates in the PRD have been met or consciously waived with evidence.
 - Users can complete every core journey on desktop and mobile.
@@ -820,7 +820,7 @@ The first post-MVP investment should remove the largest observed barrier to the 
 | 3 | Forecast engine, entries, scenarios, and calculation tests |
 | 4 | Dashboard, weekly review, follow-up workflow, responsive and accessible UX |
 | 5 | Stripe billing, entitlements, privacy controls, backups, and operational runbooks |
-| 6 | CI/CD hardening, cross-browser QA, pilot cohort, production rehearsal, private paid beta |
+| 6 | CI/CD hardening, cross-browser QA, pilot cohort, production rehearsal, self-service launch |
 
 If validation or calculation trust is weak, extend the schedule rather than launching around those problems.
 

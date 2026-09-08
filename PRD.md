@@ -461,7 +461,7 @@ Avoid:
 Use a simple subscription with one primary paid tier.
 
 **Free trial:** 14 days, no payment method required  
-**Founding plan:** $9 per month or $90 per year  
+**Launch plan:** $9 per month or $90 per year
 **Expected standard price after validation:** $12 to $15 per month
 
 All MVP functionality should be available during the trial. Artificial feature limits would make it harder for users to experience the complete value loop.
@@ -506,7 +506,7 @@ A user is activated when they:
 
 ### 11.4 Revenue
 
-- 10% trial-to-paid conversion during the private beta.
+- 10% trial-to-paid conversion during the initial launch period.
 - 20% trial-to-paid conversion after onboarding improvements and qualified acquisition.
 - Less than 8% monthly customer churn after the first three months of paid availability.
 
@@ -555,9 +555,9 @@ Before a full product, provide five prospects with a manually prepared 90-day vi
 - Three take an action based on it within one week.
 - Three request an updated view or ask to use it again.
 
-### Phase 3: Interactive MVP
+### Phase 3: Self-Service MVP
 
-Invite 20 to 30 users into a private beta. Charge a founding price after a short trial so willingness to pay is tested early.
+Open self-service registration with a 14-day trial and no approval or payment method required. Begin with controlled traffic and direct observation of the first 20 to 30 users, but do not gate account creation behind invitations or manual founder action. Charge the launch price after the trial so willingness to pay is tested early.
 
 **Evidence to continue**
 
@@ -566,9 +566,9 @@ Invite 20 to 30 users into a private beta. Charge a founding price after a short
 - At least five become paying customers.
 - Calculation trust is not a recurring blocker.
 
-### Phase 4: Public Launch
+### Phase 4: Growth Launch
 
-Launch publicly only after users repeatedly maintain their forecast. Acquisition cannot compensate for weak weekly retention.
+Increase public acquisition only after users repeatedly maintain their forecast. The product remains self-service throughout; the rollout limit controls marketing volume, not who is allowed to create an account.
 
 ---
 
@@ -643,7 +643,7 @@ Launch publicly only after users repeatedly maintain their forecast. Acquisition
 
 ## 15. Release Criteria
 
-The MVP is ready for a private paid beta when:
+The MVP is ready for self-service paid launch when:
 
 - A new user can create a meaningful forecast in under 10 minutes.
 - All MVP inflow and outflow actions work without assistance.
@@ -681,7 +681,7 @@ The first integration should be selected from observed user behavior, not assume
 
 ## 17. Open Product Questions
 
-The private beta should answer these questions:
+The initial self-service cohort should answer these questions:
 
 1. Does “safe to spend” immediately make sense, or does another phrase create more trust?
 2. Will users maintain a forecast manually each week if the review takes less than five minutes?
@@ -707,7 +707,7 @@ The private beta should answer these questions:
 | Core output | Safe-to-spend, lowest projected cash, risk date, next action |
 | Differentiator | Decision clarity rather than bookkeeping breadth |
 | Revenue model | 14-day trial, then simple subscription |
-| Initial price | $9/month founding plan |
+| Initial price | $9/month launch plan |
 | Primary habit | Five-minute weekly cash review |
 | Explicit exclusions | Banking, accounting, invoicing, payments, tax advice, general AI chat |
 | Validation threshold | Repeat weekly use and early paid conversion |

@@ -39,8 +39,8 @@ describe("Finvayo Worker", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store, private");
-    expect(html).toContain("Welcome to Finvayo");
-    expect(html).toContain("Private beta access is currently invitation-only");
+    expect(html).toContain("Start free or sign in");
+    expect(html).toContain("No invitation or approval will be required");
   });
 
   it("redirects the protected app entry to login", async () => {
