@@ -173,7 +173,6 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
   if (url.pathname === "/auth/signup" && request.method === "POST") return handleSignup(request, env);
   if (url.pathname === "/auth/login" && request.method === "POST") return handleLogin(request, env);
   if (url.pathname === "/auth/forgot-password" && request.method === "POST") {
-    if (!sameOrigin(request)) return new Response("Forbidden", { status: 403, headers: PAGE_HEADERS });
     return requestPasswordReset(request, env as EmailEnv);
   }
   if (url.pathname === "/auth/reset-password" && request.method === "POST") {

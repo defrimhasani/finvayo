@@ -227,7 +227,11 @@ describe("Finvayo Worker", () => {
     const form = new FormData();
     form.set("email", `missing-${crypto.randomUUID()}@example.com`);
     const response = await worker.fetch(
-      new Request("https://finvayo.test/auth/forgot-password", { method: "POST", headers: { "cf-connecting-ip": "192.0.2.14" }, body: form }) as Parameters<typeof worker.fetch>[0],
+      new Request("https://finvayo.test/auth/forgot-password", {
+        method: "POST",
+        headers: { "cf-connecting-ip": "192.0.2.14", origin: "null" },
+        body: form,
+      }) as Parameters<typeof worker.fetch>[0],
       emailEnv,
     );
     expect(response.status).toBe(303);
