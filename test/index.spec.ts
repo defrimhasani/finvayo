@@ -643,6 +643,43 @@ describe("Finvayo Worker", () => {
     );
   });
 
+  it("creates, sends, publishes, and records payment for an invoice", async () => {
+    const send = vi.fn().mockResolvedValue({ messageId: "invoice-message" });
+    const emailEnv = { ...env, EMAIL: { send } } as unknown as Env;
+    const form = new FormData();
+    form.set("email", `invoice-owner-${crypto.randomUUID()}@example.com`);
+    form.set("password", "a-secure-example-password");
+    form.set("terms", "on");
+    const signup = await worker.fetch(new Request("https://finvayo.test/auth/signup", { method: "POST", body: form }) as Parameters<typeof worker.fetch>[0], emailEnv);
+    const cookie = signup.headers.get("set-cookie")?.split(";")[0] ?? "";
+    const headers = { cookie, origin: "https://finvayo.test", "content-type": "application/json" };
+    const customerResponse = await worker.fetch(new Request("https://finvayo.test/api/parties", { method: "POST", headers, body: JSON.stringify({ name: "Invoice Client", role: "customer", email: "billing@example.com" }) }) as Parameters<typeof worker.fetch>[0], emailEnv);
+    const { id: customerId } = (await customerResponse.json()) as { id: string };
+    const created = await worker.fetch(new Request("https://finvayo.test/api/invoices", { method: "POST", headers, body: JSON.stringify({ customerId, invoiceNumber: "INV-200", issueDate: "2026-09-08", dueDate: "2026-09-22", taxRateBasisPoints: 2000, notes: "Thank you", items: [{ description: "Consulting", quantity: 2.5, unitPriceMinor: 10000 }] }) }) as Parameters<typeof worker.fetch>[0], emailEnv);
+    expect(created.status).toBe(201);
+    const { id } = (await created.json()) as { id: string };
+    const detail = await worker.fetch(new Request(`https://finvayo.test/api/invoices/${id}`, { headers: { cookie } }) as Parameters<typeof worker.fetch>[0], emailEnv);
+    await expect(detail.json()).resolves.toEqual({ invoice: expect.objectContaining({ id, invoiceNumber: "INV-200", subtotalMinor: 25000, taxMinor: 5000, totalMinor: 30000, status: "draft" }) });
+
+    send.mockClear();
+    const sent = await worker.fetch(new Request(`https://finvayo.test/api/invoices/${id}/send`, { method: "POST", headers, body: "{}" }) as Parameters<typeof worker.fetch>[0], emailEnv);
+    expect(sent.status).toBe(200);
+    const sentMessage = send.mock.calls[0][0] as { to: string; text: string };
+    expect(sentMessage.to).toBe("billing@example.com");
+    const publicUrl = sentMessage.text.match(/https:\/\/finvayo\.test\/invoice\/[A-Za-z0-9_-]+/)?.[0];
+    expect(publicUrl).toBeDefined();
+    const publicView = await worker.fetch(new Request(publicUrl ?? "") as Parameters<typeof worker.fetch>[0], emailEnv);
+    expect(publicView.status).toBe(200);
+    expect(await publicView.text()).toContain("INV-200");
+
+    const paid = await worker.fetch(new Request(`https://finvayo.test/api/invoices/${id}/paid`, { method: "POST", headers, body: JSON.stringify({ paidDate: "2026-09-20" }) }) as Parameters<typeof worker.fetch>[0], emailEnv);
+    expect(paid.status).toBe(200);
+    const duplicate = await worker.fetch(new Request(`https://finvayo.test/api/invoices/${id}/paid`, { method: "POST", headers, body: JSON.stringify({ paidDate: "2026-09-20" }) }) as Parameters<typeof worker.fetch>[0], emailEnv);
+    expect(duplicate.status).toBe(409);
+    const financials = (await (await worker.fetch(new Request("https://finvayo.test/api/financials", { headers: { cookie } }) as Parameters<typeof worker.fetch>[0], emailEnv)).json()) as { entries: Array<Record<string, unknown>> };
+    expect(financials.entries).toContainEqual(expect.objectContaining({ name: "Invoice INV-200", amountMinor: 30000, actualAmountMinor: 30000, actualDate: "2026-09-20", status: "paid" }));
+  });
+
   it("updates workspace settings and locks currency after financial activity", async () => {
     const form = new FormData();
     const email = `settings-${crypto.randomUUID()}@example.com`;

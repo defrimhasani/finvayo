@@ -14,6 +14,7 @@ import {
 import { sendWelcomeEmail, type EmailEnv } from "./email";
 import { deleteAccount, exportWorkspace, resetPlan } from "./data-controls";
 import { calculateScenario, createCashEntry, createCashSnapshot, deleteCashEntry, getFinancials, updateCashEntry } from "./financials";
+import { createInvoice, deleteInvoice, getInvoice, listInvoices, markInvoicePaid, publicInvoice, sendInvoice, updateInvoice } from "./invoices";
 import { requestPasswordReset, resetPassword, validResetToken } from "./password-reset";
 import { createParty, deleteParty, getParties, updateParty } from "./parties";
 import { getSettings, updateSettings } from "./settings";
@@ -86,6 +87,14 @@ async function renderSettings(request: Request, env: Env): Promise<Response> {
   const html = template
     .replaceAll("{{WORKSPACE}}", safeText(user.workspaceName))
     .replaceAll("{{ACCOUNT_LABEL}}", safeText(user.email));
+  return new Response(html, { headers: { ...PAGE_HEADERS, "content-type": "text/html; charset=utf-8" } });
+}
+
+async function renderInvoices(request: Request, env: Env): Promise<Response> {
+  const user = await currentUser(request, env.DB);
+  if (!user) return redirect(request, "/login?next=/app/invoices");
+  const template = await (await env.ASSETS.fetch(new URL("/invoices.html", request.url))).text();
+  const html = template.replaceAll("{{WORKSPACE}}", safeText(user.workspaceName)).replaceAll("{{ACCOUNT_LABEL}}", safeText(user.email));
   return new Response(html, { headers: { ...PAGE_HEADERS, "content-type": "text/html; charset=utf-8" } });
 }
 
@@ -207,6 +216,15 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
   if (url.pathname === "/api/financials" && request.method === "GET") return getFinancials(request, env.DB);
   if (url.pathname === "/api/cash-snapshots" && request.method === "POST") return createCashSnapshot(request, env.DB);
   if (url.pathname === "/api/scenarios" && request.method === "POST") return calculateScenario(request, env.DB);
+  if (url.pathname === "/api/invoices" && request.method === "GET") return listInvoices(request, env.DB);
+  if (url.pathname === "/api/invoices" && request.method === "POST") return createInvoice(request, env.DB);
+  const invoiceActionMatch = url.pathname.match(/^\/api\/invoices\/([0-9a-f-]+)\/(send|paid)$/i);
+  if (invoiceActionMatch && request.method === "POST" && invoiceActionMatch[2] === "send") return sendInvoice(request, env as EmailEnv, invoiceActionMatch[1]);
+  if (invoiceActionMatch && request.method === "POST" && invoiceActionMatch[2] === "paid") return markInvoicePaid(request, env.DB, invoiceActionMatch[1]);
+  const invoiceMatch = url.pathname.match(/^\/api\/invoices\/([0-9a-f-]+)$/i);
+  if (invoiceMatch && request.method === "GET") return getInvoice(request, env.DB, invoiceMatch[1]);
+  if (invoiceMatch && request.method === "PATCH") return updateInvoice(request, env.DB, invoiceMatch[1]);
+  if (invoiceMatch && request.method === "DELETE") return deleteInvoice(request, env.DB, invoiceMatch[1]);
   if (url.pathname === "/api/cash-entries" && request.method === "POST") return createCashEntry(request, env.DB);
   const cashEntryMatch = url.pathname.match(/^\/api\/cash-entries\/([0-9a-f-]+)$/i);
   if (cashEntryMatch && request.method === "PATCH") return updateCashEntry(request, env.DB, cashEntryMatch[1]);
@@ -245,6 +263,11 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
     return renderSettings(request, env);
   }
 
+  if (url.pathname === "/app/invoices" || url.pathname === "/app/invoices/") return renderInvoices(request, env);
+
+  const publicInvoiceMatch = url.pathname.match(/^\/invoice\/([A-Za-z0-9_-]+)$/);
+  if (publicInvoiceMatch && request.method === "GET") return publicInvoice(request, env.DB, publicInvoiceMatch[1]);
+
   if (url.pathname === "/reset-password" || url.pathname === "/reset-password/") {
     const token = url.searchParams.get("token");
     if (!(await validResetToken(env.DB, token))) return redirect(request, "/forgot-password?error=expired");
@@ -254,7 +277,7 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
     });
   }
 
-  if (url.pathname === "/app-shell.html" || url.pathname === "/settings.html" || url.pathname === "/reset-password/index.html") {
+  if (url.pathname === "/app-shell.html" || url.pathname === "/settings.html" || url.pathname === "/invoices.html" || url.pathname === "/reset-password/index.html") {
     return new Response("Not found", { status: 404, headers: PAGE_HEADERS });
   }
 

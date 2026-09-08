@@ -419,6 +419,8 @@ export async function updateCashEntry(request: Request, db: D1Database, id: stri
     .bind(id, user.workspaceId)
     .first<CashEntryInput & { direction: "inflow" | "outflow" }>();
   if (!existing) return json({ error: "Not found" }, 404);
+  const invoice = await db.prepare("SELECT id FROM invoices WHERE cash_entry_id = ? AND workspace_id = ?").bind(id, user.workspaceId).first();
+  if (invoice) return json({ error: "Invoice payments must be managed from Invoices" }, 409);
 
   const merged: CashEntryInput = {
     direction: input.direction ?? existing.direction,
@@ -496,6 +498,8 @@ export async function updateCashEntry(request: Request, db: D1Database, id: stri
 export async function deleteCashEntry(request: Request, db: D1Database, id: string): Promise<Response> {
   const user = await authenticatedWorkspace(request, db);
   if (!user) return json({ error: "Unauthorized" }, 401);
+  const invoice = await db.prepare("SELECT id FROM invoices WHERE cash_entry_id = ? AND workspace_id = ?").bind(id, user.workspaceId).first();
+  if (invoice) return json({ error: "Invoice payments must be managed from Invoices" }, 409);
   const result = await db.prepare("DELETE FROM cash_entries WHERE id = ? AND workspace_id = ?").bind(id, user.workspaceId).run();
   return result.meta.changes ? new Response(null, { status: 204 }) : json({ error: "Not found" }, 404);
 }

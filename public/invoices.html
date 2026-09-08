@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, noarchive" /><meta name="theme-color" content="#f3efe5" />
+    <title>Invoices | Finvayo</title><link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css" /><link rel="stylesheet" href="/product.css" />
+  </head>
+  <body class="app-page">
+    <a class="skip-link" href="#invoice-main">Skip to invoices</a>
+    <aside class="app-sidebar">
+      <a class="wordmark app-wordmark" href="/"><svg aria-hidden="true" viewBox="0 0 32 32"><path d="M5 24V8h22M8 20l5-5 4 3 8-9" /></svg>Finvayo</a>
+      <nav class="app-nav"><a href="/app"><span>⌂</span> Overview</a><a href="/app#parties"><span>◎</span> Parties</a><a class="active" href="/app/invoices" aria-current="page"><span>▤</span> Invoices</a><a href="/app#cash-plan"><span>↗</span> Cash plan</a></nav>
+      <div class="sidebar-bottom"><a href="/app/settings"><span>⚙</span> Settings</a><form class="logout-form" action="/auth/logout" method="post"><button type="submit"><span>↪</span> Sign out</button></form><div class="user-chip"><span>FV</span><div><strong>{{WORKSPACE}}</strong><small>{{ACCOUNT_LABEL}}</small></div></div></div>
+    </aside>
+    <header class="mobile-app-header"><a class="wordmark" href="/"><svg aria-hidden="true" viewBox="0 0 32 32"><path d="M5 24V8h22M8 20l5-5 4 3 8-9" /></svg>Finvayo</a><a href="/app">Overview</a></header>
+    <main class="app-main settings-main" id="invoice-main">
+      <header class="workspace-header"><div><p class="app-kicker">Get paid</p><h1>Invoices</h1></div><button class="button button-primary" id="new-invoice" type="button">New invoice</button></header>
+      <section class="invoice-workspace">
+        <aside class="settings-card invoice-list-card"><div class="section-row"><div><p class="app-kicker">Documents</p><h2>All invoices</h2></div><span id="invoice-count">0 invoices</span></div><div class="invoice-filters"><button class="active" data-filter="all">All</button><button data-filter="draft">Draft</button><button data-filter="sent">Sent</button><button data-filter="overdue">Overdue</button><button data-filter="paid">Paid</button></div><div id="invoice-list"><p class="transaction-empty">No invoices yet.</p></div></aside>
+        <form class="settings-card invoice-form" id="invoice-form">
+          <div class="section-row"><div><p class="app-kicker">Invoice editor</p><h2 id="invoice-form-title">New invoice</h2></div><span id="invoice-form-status">Draft</span></div>
+          <div class="transaction-fields"><label class="transaction-field"><span>Customer</span><select name="customerId" required></select></label><label class="transaction-field"><span>Invoice number</span><input name="invoiceNumber" maxlength="40" required /></label></div>
+          <div class="transaction-fields"><label class="transaction-field"><span>Issue date</span><input name="issueDate" type="date" required /></label><label class="transaction-field"><span>Due date</span><input name="dueDate" type="date" required /></label></div>
+          <div class="invoice-items-heading"><span>Line items</span><button type="button" id="add-invoice-item">+ Add item</button></div><div id="invoice-items"></div>
+          <div class="transaction-fields"><label class="transaction-field"><span>Tax rate (%)</span><input name="taxRate" inputmode="decimal" value="0" required /></label><label class="transaction-field"><span>Notes</span><textarea name="notes" maxlength="1000" rows="3" placeholder="Payment details or a thank-you note"></textarea></label></div>
+          <div class="invoice-editor-total"><span>Total</span><strong id="invoice-total">$0.00</strong></div>
+          <div class="invoice-form-actions"><button class="button button-primary" type="submit">Save draft</button><button class="button button-secondary" id="cancel-invoice" type="button">Clear</button></div>
+          <p class="transaction-message" id="invoice-message" role="status" aria-live="polite"></p>
+        </form>
+        <section class="settings-card invoice-detail" id="invoice-detail" hidden></section>
+      </section>
+    </main>
+    <nav class="mobile-bottom-nav settings-mobile-nav"><a href="/app"><span>⌂</span>Overview</a><a href="/app#parties"><span>◎</span>Parties</a><a class="active" href="/app/invoices"><span>▤</span>Invoices</a></nav>
+    <script src="/invoices.js" defer></script>
+  </body>
+</html>

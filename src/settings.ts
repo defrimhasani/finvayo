@@ -48,7 +48,8 @@ export async function getSettings(request: Request, db: D1Database): Promise<Res
         workspaces.payment_delay_days AS paymentDelayDays,
         users.email,
         EXISTS(SELECT 1 FROM cash_snapshots WHERE workspace_id = workspaces.id) OR
-        EXISTS(SELECT 1 FROM cash_entries WHERE workspace_id = workspaces.id) AS currencyLocked
+        EXISTS(SELECT 1 FROM cash_entries WHERE workspace_id = workspaces.id) OR
+        EXISTS(SELECT 1 FROM invoices WHERE workspace_id = workspaces.id) AS currencyLocked
        FROM workspaces JOIN users ON users.id = workspaces.owner_user_id
        WHERE workspaces.id = ?`,
     )
@@ -84,7 +85,8 @@ export async function updateSettings(request: Request, db: D1Database): Promise<
        WHERE id = ? AND (
          currency = ? OR (
            NOT EXISTS(SELECT 1 FROM cash_snapshots WHERE workspace_id = workspaces.id) AND
-           NOT EXISTS(SELECT 1 FROM cash_entries WHERE workspace_id = workspaces.id)
+           NOT EXISTS(SELECT 1 FROM cash_entries WHERE workspace_id = workspaces.id) AND
+           NOT EXISTS(SELECT 1 FROM invoices WHERE workspace_id = workspaces.id)
          )
        )`,
     )

@@ -35,13 +35,15 @@ function csvCell(value: unknown): string {
 export async function exportWorkspace(request: Request, db: D1Database): Promise<Response> {
   const user = await currentUser(request, db);
   if (!user) return json({ error: "Unauthorized" }, 401);
-  const [workspace, snapshots, entries, parties, reviews, followUps] = await Promise.all([
+  const [workspace, snapshots, entries, parties, reviews, followUps, invoices, invoiceItems] = await Promise.all([
     db.prepare("SELECT name, currency, timezone, minimum_buffer_minor AS minimumBufferMinor, tax_reserve_minor AS taxReserveMinor, tax_reserve_mode AS taxReserveMode, tax_rate_basis_points AS taxRateBasisPoints, payment_delay_days AS paymentDelayDays FROM workspaces WHERE id = ?").bind(user.workspaceId).first(),
     db.prepare("SELECT balance_minor AS balanceMinor, effective_date AS effectiveDate, confirmed_at AS confirmedAt FROM cash_snapshots WHERE workspace_id = ? ORDER BY effective_date").bind(user.workspaceId).all(),
     db.prepare("SELECT id, direction, name, amount_minor AS amountMinor, scheduled_date AS scheduledDate, status, client_name AS clientName, invoice_reference AS invoiceReference, COALESCE(transaction_category, category) AS category, recurrence, included, actual_amount_minor AS actualAmountMinor, actual_date AS actualDate, completed_at AS completedAt, party_id AS partyId, party_name AS partyName, created_at AS createdAt, updated_at AS updatedAt FROM cash_entries WHERE workspace_id = ? ORDER BY scheduled_date").bind(user.workspaceId).all(),
     db.prepare("SELECT id, name, role, email, phone, notes, created_at AS createdAt, updated_at AS updatedAt FROM parties WHERE workspace_id = ? ORDER BY name COLLATE NOCASE").bind(user.workspaceId).all(),
     db.prepare("SELECT summary, completed_at AS completedAt FROM weekly_reviews WHERE workspace_id = ? ORDER BY completed_at").bind(user.workspaceId).all(),
     db.prepare("SELECT cash_entry_id AS cashEntryId, tone, message, completed_at AS completedAt FROM follow_ups WHERE workspace_id = ? ORDER BY completed_at").bind(user.workspaceId).all(),
+    db.prepare("SELECT id, customer_id AS customerId, invoice_number AS invoiceNumber, issue_date AS issueDate, due_date AS dueDate, status, subtotal_minor AS subtotalMinor, tax_rate_basis_points AS taxRateBasisPoints, tax_minor AS taxMinor, total_minor AS totalMinor, notes, sent_at AS sentAt, paid_at AS paidAt, cash_entry_id AS cashEntryId, created_at AS createdAt, updated_at AS updatedAt FROM invoices WHERE workspace_id = ? ORDER BY created_at").bind(user.workspaceId).all(),
+    db.prepare("SELECT invoice_items.id, invoice_id AS invoiceId, description, quantity_milli AS quantityMilli, unit_price_minor AS unitPriceMinor, amount_minor AS amountMinor, position FROM invoice_items JOIN invoices ON invoices.id = invoice_items.invoice_id WHERE invoices.workspace_id = ? ORDER BY invoice_id, position").bind(user.workspaceId).all(),
   ]);
   const url = new URL(request.url);
   const format = url.searchParams.get("format") ?? "json";
@@ -51,7 +53,7 @@ export async function exportWorkspace(request: Request, db: D1Database): Promise
     return new Response(`${rows.join("\n")}\n`, { headers: { "cache-control": "no-store, private", "content-type": "text/csv; charset=utf-8", "content-disposition": "attachment; filename=finvayo-transactions.csv" } });
   }
   if (format !== "json") return json({ error: "Invalid export format" }, 400);
-  return new Response(JSON.stringify({ exportedAt: new Date().toISOString(), account: { email: user.email }, workspace, snapshots: snapshots.results, entries: entries.results, parties: parties.results, reviews: reviews.results, followUps: followUps.results }, null, 2), {
+  return new Response(JSON.stringify({ exportedAt: new Date().toISOString(), account: { email: user.email }, workspace, snapshots: snapshots.results, entries: entries.results, parties: parties.results, invoices: invoices.results, invoiceItems: invoiceItems.results, reviews: reviews.results, followUps: followUps.results }, null, 2), {
     headers: { "cache-control": "no-store, private", "content-type": "application/json; charset=utf-8", "content-disposition": "attachment; filename=finvayo-data.json" },
   });
 }
@@ -63,6 +65,7 @@ export async function resetPlan(request: Request, db: D1Database): Promise<Respo
   await db.batch([
     db.prepare("DELETE FROM follow_ups WHERE workspace_id = ?").bind(user.workspaceId),
     db.prepare("DELETE FROM weekly_reviews WHERE workspace_id = ?").bind(user.workspaceId),
+    db.prepare("DELETE FROM invoices WHERE workspace_id = ?").bind(user.workspaceId),
     db.prepare("DELETE FROM cash_entries WHERE workspace_id = ?").bind(user.workspaceId),
     db.prepare("DELETE FROM cash_snapshots WHERE workspace_id = ?").bind(user.workspaceId),
   ]);

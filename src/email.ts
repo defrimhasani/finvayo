@@ -11,8 +11,7 @@ function escapeHtml(value: string): string {
 
 async function send(env: EmailEnv, to: string, subject: string, text: string, html: string): Promise<void> {
   if (!env.EMAIL) {
-    console.warn("Email binding is not configured", { subject });
-    return;
+    throw new Error("Email service is not configured");
   }
   await env.EMAIL.send({ to, from: FROM, replyTo: "hello@finvayo.com", subject, text, html });
 }
@@ -46,5 +45,19 @@ export async function sendPasswordChangedEmail(env: EmailEnv, email: string): Pr
     "Your Finvayo password was changed",
     "Your Finvayo password was changed and all existing sessions were signed out. If you did not make this change, contact hello@finvayo.com immediately.",
     `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#17221e"><h1>Your password was changed.</h1><p>All existing Finvayo sessions were signed out.</p><p>If you did not make this change, contact <a href="mailto:hello@finvayo.com">hello@finvayo.com</a> immediately.</p></div>`,
+  );
+}
+
+export async function sendInvoiceEmail(
+  env: EmailEnv,
+  details: { to: string; customerName: string; businessName: string; invoiceNumber: string; total: string; dueDate: string; publicUrl: string },
+): Promise<void> {
+  const safe = Object.fromEntries(Object.entries(details).map(([key, value]) => [key, escapeHtml(value)])) as typeof details;
+  await send(
+    env,
+    details.to,
+    `Invoice ${details.invoiceNumber} from ${details.businessName}`,
+    `${details.businessName} sent you invoice ${details.invoiceNumber} for ${details.total}, due ${details.dueDate}. View and print it here: ${details.publicUrl}`,
+    `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#17221e"><p>Hi ${safe.customerName},</p><h1>Invoice ${safe.invoiceNumber}</h1><p>${safe.businessName} sent you an invoice for <strong>${safe.total}</strong>, due ${safe.dueDate}.</p><p><a href="${safe.publicUrl}" style="display:inline-block;padding:12px 18px;background:#175f57;color:white;text-decoration:none">View invoice</a></p><p style="color:#68736d;font-size:13px">Sent securely with Finvayo.</p></div>`,
   );
 }

@@ -77,6 +77,8 @@ export async function createParty(request: Request, db: D1Database): Promise<Res
 export async function deleteParty(request: Request, db: D1Database, id: string): Promise<Response> {
   const user = await currentUser(request, db);
   if (!user) return json({ error: "Unauthorized" }, 401);
+  const invoice = await db.prepare("SELECT id FROM invoices WHERE customer_id = ? AND workspace_id = ? LIMIT 1").bind(id, user.workspaceId).first();
+  if (invoice) return json({ error: "Customers with invoices cannot be deleted" }, 409);
   const result = await db.prepare("DELETE FROM parties WHERE id = ? AND workspace_id = ?").bind(id, user.workspaceId).run();
   return result.meta.changes ? new Response(null, { status: 204 }) : json({ error: "Not found" }, 404);
 }
