@@ -5,8 +5,8 @@
   "compatibility_date": "2026-09-07",
   "routes": [
     {
-      "pattern": "finvayo.com",
-      "custom_domain": true
+      "pattern": "finvayo.com/*",
+      "zone_name": "finvayo.com"
     }
   ],
   "assets": {
