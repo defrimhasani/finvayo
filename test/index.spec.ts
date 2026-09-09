@@ -52,7 +52,8 @@ describe("Finvayo Worker", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain("text/html");
-    expect(html).toContain("Know what your business can safely spend");
+    expect(html).toContain('<div id="root"></div>');
+    expect(html).toContain('type="module"');
   });
 
   it("serves the login experience without caching it", async () => {
@@ -61,8 +62,8 @@ describe("Finvayo Worker", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store, private");
-    expect(html).toContain("Welcome back");
-    expect(html).toContain('action="/auth/login"');
+    expect(html).toContain('<div id="root"></div>');
+    expect(html).toContain('window.__FINVAYO__={"page":"login"}');
   });
 
   it("redirects an unauthenticated app entry to login", async () => {
@@ -95,9 +96,8 @@ describe("Finvayo Worker", () => {
 
     expect(app.status).toBe(200);
     expect(html).toContain(email);
-    expect(html).toContain("days left in trial");
-    expect(html).toContain("Record a transaction");
-    expect(html).toContain('data-preview="false"');
+    expect(html).toContain('window.__FINVAYO__={"page":"app","preview":false');
+    expect(html).toContain(email);
   });
 
   it("signs an existing account in and rejects a wrong password", async () => {
@@ -216,7 +216,7 @@ describe("Finvayo Worker", () => {
 
     const resetPage = await worker.fetch(new Request(resetUrl ?? "") as Parameters<typeof worker.fetch>[0], emailEnv);
     expect(resetPage.status).toBe(200);
-    expect(await resetPage.text()).toContain("Choose a new password");
+    expect(await resetPage.text()).toContain('window.__FINVAYO__={"page":"reset-password"');
     const token = new URL(resetUrl ?? "").searchParams.get("token") ?? "";
     const resetForm = new FormData();
     resetForm.set("token", token);
@@ -704,7 +704,7 @@ describe("Finvayo Worker", () => {
     const page = await SELF.fetch("https://finvayo.test/app/settings", { headers: { cookie } });
     expect(page.status).toBe(200);
     expect(page.headers.get("cache-control")).toBe("no-store, private");
-    expect(await page.text()).toContain("Workspace controls");
+    expect(await page.text()).toContain('window.__FINVAYO__={"page":"settings"');
 
     const updated = await SELF.fetch("https://finvayo.test/api/settings", {
       method: "PATCH",
@@ -862,9 +862,7 @@ describe("Finvayo Worker", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store, private");
-    expect(html).toContain("Safe to spend now");
-    expect(html).toContain("This workspace uses sample data");
-    expect(html).toContain('data-preview="true"');
+    expect(html).toContain('window.__FINVAYO__={"page":"app","preview":true}');
   });
 
   it("returns a controlled response when a request handler throws", async () => {

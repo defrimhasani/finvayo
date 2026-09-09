@@ -40,62 +40,49 @@ function redirect(request: Request, path: string, cookie?: string): Response {
   return new Response(null, { status: 303, headers });
 }
 
-function safeText(value: string): string {
-  return value.replace(/[&<>"']/g, (character) => {
-    const entities: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
-    return entities[character];
-  });
-}
-
 function displayName(email: string): string {
   const local = email.split("@")[0].replace(/[._-]+/g, " ").trim();
   if (!local) return "there";
   return local.replace(/\b\w/g, (character) => character.toUpperCase()).slice(0, 40);
 }
 
+function serializedBootstrap(value: unknown): string {
+  return JSON.stringify(value).replaceAll("<", "\\u003c").replaceAll("\u2028", "\\u2028").replaceAll("\u2029", "\\u2029");
+}
+
+async function renderReact(request: Request, env: Env, bootstrap: Record<string, unknown> = {}): Promise<Response> {
+  const template = await (await env.ASSETS.fetch(new URL("/index.html", request.url))).text();
+  const html = template.replace("</head>", `<script>window.__FINVAYO__=${serializedBootstrap(bootstrap)}</script></head>`);
+  return new Response(html, { headers: { ...PAGE_HEADERS, "content-type": "text/html; charset=utf-8" } });
+}
+
 async function renderApp(request: Request, env: Env, preview: boolean): Promise<Response> {
   const user = preview ? null : await currentUser(request, env.DB);
   if (!preview && !user) return redirect(request, "/login?next=/app");
-
-  const templateUrl = new URL("/app-shell.html", request.url);
-  const template = await (await env.ASSETS.fetch(templateUrl)).text();
-  const name = user ? displayName(user.email) : "Alex";
-  const workspace = user?.workspaceName ?? "Demo workspace";
-  const accountLabel = user?.email ?? "Sample data";
-  const trialDays = user ? Math.max(0, Math.ceil((user.trialEndsAt - Date.now() / 1000) / 86_400)) : 0;
-  const banner = preview
-    ? `<div class="preview-banner"><span>Product preview</span><p>This workspace uses sample data. Create your own workspace in a few seconds.</p><a href="/signup">Start free</a></div>`
-    : `<div class="preview-banner account-banner"><span>${trialDays} days left in trial</span><p>Your workspace is ready. Add real cash data to replace this guided example.</p><a href="#setup">Start setup</a></div>`;
-  const exit = preview
-    ? `<a href="/login"><span aria-hidden="true">↪</span> Leave preview</a>`
-    : `<form class="logout-form" action="/auth/logout" method="post"><button type="submit"><span aria-hidden="true">↪</span> Sign out</button></form>`;
-  const html = template
-    .replaceAll("{{ROBOTS}}", preview ? '<meta name="robots" content="noindex" />' : '<meta name="robots" content="noindex, noarchive" />')
-    .replaceAll("{{BANNER}}", banner)
-    .replaceAll("{{NAME}}", safeText(name))
-    .replaceAll("{{WORKSPACE}}", safeText(workspace))
-    .replaceAll("{{ACCOUNT_LABEL}}", safeText(accountLabel))
-    .replaceAll("{{PREVIEW}}", String(preview))
-    .replaceAll("{{EXIT}}", exit);
-  return new Response(html, { headers: { ...PAGE_HEADERS, "content-type": "text/html; charset=utf-8" } });
+  return renderReact(request, env, {
+    page: "app",
+    preview,
+    user: user ? {
+      email: user.email,
+      workspaceName: user.workspaceName,
+      displayName: displayName(user.email),
+      trialDays: Math.max(0, Math.ceil((user.trialEndsAt - Date.now() / 1000) / 86_400)),
+    } : undefined,
+  });
 }
 
-async function renderSettings(request: Request, env: Env): Promise<Response> {
+async function renderAuthenticatedPage(request: Request, env: Env, page: string): Promise<Response> {
   const user = await currentUser(request, env.DB);
-  if (!user) return redirect(request, "/login?next=/app/settings");
-  const template = await (await env.ASSETS.fetch(new URL("/settings.html", request.url))).text();
-  const html = template
-    .replaceAll("{{WORKSPACE}}", safeText(user.workspaceName))
-    .replaceAll("{{ACCOUNT_LABEL}}", safeText(user.email));
-  return new Response(html, { headers: { ...PAGE_HEADERS, "content-type": "text/html; charset=utf-8" } });
-}
-
-async function renderInvoices(request: Request, env: Env): Promise<Response> {
-  const user = await currentUser(request, env.DB);
-  if (!user) return redirect(request, "/login?next=/app/invoices");
-  const template = await (await env.ASSETS.fetch(new URL("/invoices.html", request.url))).text();
-  const html = template.replaceAll("{{WORKSPACE}}", safeText(user.workspaceName)).replaceAll("{{ACCOUNT_LABEL}}", safeText(user.email));
-  return new Response(html, { headers: { ...PAGE_HEADERS, "content-type": "text/html; charset=utf-8" } });
+  if (!user) return redirect(request, `/login?next=${new URL(request.url).pathname}`);
+  return renderReact(request, env, {
+    page,
+    user: {
+      email: user.email,
+      workspaceName: user.workspaceName,
+      displayName: displayName(user.email),
+      trialDays: Math.max(0, Math.ceil((user.trialEndsAt - Date.now() / 1000) / 86_400)),
+    },
+  });
 }
 
 async function handleSignup(request: Request, env: Env): Promise<Response> {
@@ -209,6 +196,10 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
     return handleStripeWebhook(request, env as StripeEnv);
   }
 
+  if (["/login", "/login/", "/signup", "/signup/", "/forgot-password", "/forgot-password/"].includes(url.pathname)) {
+    return renderReact(request, env, { page: url.pathname.split("/")[1] });
+  }
+
   if (url.pathname.startsWith("/api/") && request.method !== "GET" && !sameOrigin(request)) {
     return Response.json({ error: "Forbidden" }, { status: 403, headers: JSON_HEADERS });
   }
@@ -260,10 +251,10 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
   }
 
   if (url.pathname === "/app/settings" || url.pathname === "/app/settings/") {
-    return renderSettings(request, env);
+    return renderAuthenticatedPage(request, env, "settings");
   }
 
-  if (url.pathname === "/app/invoices" || url.pathname === "/app/invoices/") return renderInvoices(request, env);
+  if (url.pathname === "/app/invoices" || url.pathname === "/app/invoices/") return renderAuthenticatedPage(request, env, "invoices");
 
   const publicInvoiceMatch = url.pathname.match(/^\/invoice\/([A-Za-z0-9_-]+)$/);
   if (publicInvoiceMatch && request.method === "GET") return publicInvoice(request, env.DB, publicInvoiceMatch[1]);
@@ -271,14 +262,7 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
   if (url.pathname === "/reset-password" || url.pathname === "/reset-password/") {
     const token = url.searchParams.get("token");
     if (!(await validResetToken(env.DB, token))) return redirect(request, "/forgot-password?error=expired");
-    const template = await (await env.ASSETS.fetch(new URL("/reset-password/index.html", request.url))).text();
-    return new Response(template.replaceAll("{{TOKEN}}", safeText(token ?? "")), {
-      headers: { ...PAGE_HEADERS, "content-type": "text/html; charset=utf-8", "referrer-policy": "no-referrer" },
-    });
-  }
-
-  if (url.pathname === "/app-shell.html" || url.pathname === "/settings.html" || url.pathname === "/invoices.html" || url.pathname === "/reset-password/index.html") {
-    return new Response("Not found", { status: 404, headers: PAGE_HEADERS });
+    return renderReact(request, env, { page: "reset-password", resetToken: token });
   }
 
   const response = await env.ASSETS.fetch(request);
