@@ -16,6 +16,7 @@ type Dialog = { type: "paid" | "delete"; invoiceId: string } | null;
 
 const FILTERS: Filter[] = ["all", "draft", "sent", "overdue", "paid"];
 const SORTS: InvoiceSort[] = ["created-desc", "due-asc", "due-desc", "amount-desc", "amount-asc", "customer-asc", "status-asc"];
+const PAGE_SIZE = 10;
 let itemSequence = 0;
 
 function newItem(item?: InvoiceItem): ItemForm {
@@ -42,6 +43,7 @@ function initialQuery() {
     invoiceId: params.get("invoice"),
     search: params.get("q") ?? "",
     sort: SORTS.includes(sort as InvoiceSort) ? sort as InvoiceSort : "created-desc" as InvoiceSort,
+    page: Math.max(1, Number.parseInt(params.get("page") || "1", 10) || 1),
   };
 }
 
@@ -66,6 +68,7 @@ export function InvoicesPage() {
   const [filter, setFilter] = useState<Filter>(query.current.filter);
   const [search, setSearch] = useState(query.current.search);
   const [sort, setSort] = useState<InvoiceSort>(query.current.sort);
+  const [page, setPage] = useState(query.current.page);
   const [selectedId, setSelectedId] = useState<string | null>(query.current.invoiceId);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [form, setForm] = useState<InvoiceForm>(emptyForm);
@@ -153,16 +156,24 @@ export function InvoicesPage() {
   function selectFilter(value: Filter) {
     setFilter(value);
     setQueryState("filter", value, "all");
+    changePage(1);
   }
 
   function updateSearch(value: string) {
     setSearch(value);
     setQueryState("q", value.trim() || null);
+    changePage(1);
   }
 
   function updateSort(value: InvoiceSort) {
     setSort(value);
     setQueryState("sort", value, "created-desc");
+    changePage(1);
+  }
+
+  function changePage(value: number) {
+    setPage(value);
+    setQueryState("page", String(value), "1");
   }
 
   function clearInvoiceFilters() {
@@ -290,13 +301,17 @@ export function InvoicesPage() {
     return second.issueDate.localeCompare(first.issueDate) || second.invoiceNumber.localeCompare(first.invoiceNumber);
   });
   const invoiceFiltersActive = filter !== "all" || search !== "" || sort !== "created-desc";
+  const pageCount = Math.max(1, Math.ceil(visibleInvoices.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const paginatedInvoices = visibleInvoices.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   return (
     <AppShell activePage="invoices">
       <main className="app-main settings-main" id="app-main">
         <header className="workspace-header"><div><p className="app-kicker">Get paid</p><h1>Invoices</h1></div><button className="button button-primary" type="button" onClick={() => { resetForm(); scrollToForm(); }}>New invoice</button></header>
         <section className="invoice-workspace" aria-busy={loading}>
-          <aside className="settings-card invoice-list-card">
+          <div className="invoice-primary">
+          <section className="settings-card invoice-list-card">
             <div className="section-row"><div><p className="app-kicker">Documents</p><h2>All Invoices</h2></div><span>{visibleInvoices.length} of {invoices.length}</span></div>
             <div className="invoice-filters" aria-label="Filter invoices">{FILTERS.map((value) => <button key={value} className={filter === value ? "active" : ""} type="button" aria-pressed={filter === value} onClick={() => selectFilter(value)}>{value[0].toUpperCase() + value.slice(1)}</button>)}</div>
             <div className="invoice-list-controls" aria-label="Search and sort invoices">
@@ -304,10 +319,18 @@ export function InvoicesPage() {
               <label className="transaction-field"><span>Sort by</span><select value={sort} onChange={(event) => updateSort(event.target.value as InvoiceSort)}><option value="created-desc">Newest issued</option><option value="due-asc">Due soonest</option><option value="due-desc">Due latest</option><option value="amount-desc">Highest amount</option><option value="amount-asc">Lowest amount</option><option value="customer-asc">Customer A-Z</option><option value="status-asc">Status</option></select></label>
               <button className="button button-secondary" type="button" disabled={!invoiceFiltersActive} onClick={clearInvoiceFilters}>Clear filters</button>
             </div>
-            <div aria-live="polite">{visibleInvoices.length ? visibleInvoices.map((invoice) => <button key={invoice.id} className="invoice-list-row" type="button" aria-current={selectedId === invoice.id} onClick={() => selectInvoice(invoice.id)}><span><strong>{invoice.invoiceNumber}</strong><small>{invoice.customerName} · Due {invoice.dueDate}</small></span><span className={`invoice-status ${invoice.status}`}>{invoice.status}</span><b>{money(invoice.totalMinor, currency)}</b></button>) : <p className="transaction-empty">{invoices.length ? "No invoices match these filters." : "No invoices yet."}</p>}</div>
-          </aside>
+            <div aria-live="polite">{paginatedInvoices.length ? paginatedInvoices.map((invoice) => <button key={invoice.id} className="invoice-list-row" type="button" aria-current={selectedId === invoice.id} onClick={() => selectInvoice(invoice.id)}><span><strong>{invoice.invoiceNumber}</strong><small>{invoice.customerName} · Due {invoice.dueDate}</small></span><span className={`invoice-status ${invoice.status}`}>{invoice.status}</span><b>{money(invoice.totalMinor, currency)}</b></button>) : <p className="transaction-empty">{invoices.length ? "No invoices match these filters." : "No invoices yet."}</p>}</div>
+            {visibleInvoices.length > PAGE_SIZE ? <nav className="invoice-pagination" aria-label="Invoice pages"><button className="button button-secondary" type="button" disabled={currentPage === 1} onClick={() => changePage(currentPage - 1)}>Previous</button><span>Page {currentPage} of {pageCount}</span><button className="button button-secondary" type="button" disabled={currentPage === pageCount} onClick={() => changePage(currentPage + 1)}>Next</button></nav> : null}
+          </section>
 
-          <form className="settings-card invoice-form" ref={formRef} onSubmit={saveInvoice}>
+          {selectedId ? <section className="settings-card invoice-detail" aria-busy={loadingDetail}>
+            {selectedInvoice ? <><div className="section-row"><div><p className="app-kicker">{selectedInvoice.status}</p><h2>Invoice {selectedInvoice.invoiceNumber}</h2></div><strong>{money(selectedInvoice.totalMinor, currency)}</strong></div><p className="settings-note">{selectedInvoice.customerName} · Issued {selectedInvoice.issueDate} · Due {selectedInvoice.dueDate}</p><div className="invoice-detail-items">{selectedInvoice.items.map((item, index) => <div className="settings-fact" key={item.id || `${item.description}-${index}`}><span>{item.description} · {item.quantityMilli / 1000} × {money(item.unitPriceMinor, currency)}</span><strong>{money(item.amountMinor, currency)}</strong></div>)}</div><div className="invoice-editor-total"><span>Total</span><strong>{money(selectedInvoice.totalMinor, currency)}</strong></div><div className="invoice-form-actions">{selectedInvoice.status === "draft" ? <><button className="button button-secondary" type="button" disabled={action !== null} onClick={() => editInvoice(selectedInvoice)}>Edit draft</button><button className="button button-primary" type="button" disabled={action !== null} onClick={() => runDetailAction("send", selectedInvoice.id)}>{action === "send" ? "Sending..." : "Send invoice"}</button><button className="button button-secondary" type="button" disabled={action !== null} onClick={() => setDialog({ type: "delete", invoiceId: selectedInvoice.id })}>Delete</button></> : selectedInvoice.status !== "paid" && selectedInvoice.status !== "void" ? <><button className="button button-secondary" type="button" disabled={action !== null} onClick={() => runDetailAction("send", selectedInvoice.id)}>{action === "send" ? "Sending..." : "Send again"}</button><button className="button button-primary" type="button" disabled={action !== null} onClick={() => { setPaidDate(todayIso()); setDialog({ type: "paid", invoiceId: selectedInvoice.id }); }}>Mark paid</button></> : selectedInvoice.status === "paid" ? <span className="invoice-paid-note">Paid {selectedInvoice.paidDate || ""}</span> : null}</div></> : loadingDetail ? <p className="transaction-empty">Loading invoice...</p> : null}
+            {dialog ? <div className="settings-card" role="dialog" aria-modal="true" aria-labelledby="invoice-dialog-title"><h3 id="invoice-dialog-title">{dialog.type === "paid" ? "Record payment" : "Delete draft invoice?"}</h3>{dialog.type === "paid" ? <label className="transaction-field"><span>Payment date</span><input type="date" value={paidDate} onChange={(event) => setPaidDate(event.target.value)} required /></label> : <p>This draft will be permanently deleted.</p>}<div className="invoice-form-actions"><button className={dialog.type === "delete" ? "button danger-button" : "button button-primary"} type="button" disabled={action !== null || (dialog.type === "paid" && !paidDate)} onClick={() => runDetailAction(dialog.type, dialog.invoiceId)}>{action ? "Working..." : dialog.type === "paid" ? "Mark paid" : "Delete invoice"}</button><button className="button button-secondary" type="button" disabled={action !== null} onClick={() => setDialog(null)}>Cancel</button></div></div> : null}
+            <p className={`transaction-message${detailError ? " error" : ""}`} role="status" aria-live="polite">{detailMessage}</p>
+          </section> : null}
+          </div>
+
+          <form className="settings-card invoice-form invoice-editor-compact" ref={formRef} onSubmit={saveInvoice}>
             <div className="section-row"><div><p className="app-kicker">Invoice editor</p><h2>{editingId ? `Edit ${form.invoiceNumber}` : "New invoice"}</h2></div><span>Draft</span></div>
             <div className="transaction-fields">
               <label className="transaction-field"><span>Customer</span><select ref={customerRef} value={form.customerId} onChange={(event) => setForm((current) => ({ ...current, customerId: event.target.value }))} required disabled={saving}><option value="">{parties.length ? "Choose a customer" : "Register a customer first"}</option>{parties.map((party) => <option key={party.id} value={party.id}>{party.name}</option>)}</select></label>
@@ -322,11 +345,6 @@ export function InvoicesPage() {
             <p className={`transaction-message${messageError ? " error" : ""}`} role="status" aria-live="polite">{message}</p>
           </form>
 
-          {selectedId ? <section className="settings-card invoice-detail" aria-busy={loadingDetail}>
-            {selectedInvoice ? <><div className="section-row"><div><p className="app-kicker">{selectedInvoice.status}</p><h2>Invoice {selectedInvoice.invoiceNumber}</h2></div><strong>{money(selectedInvoice.totalMinor, currency)}</strong></div><p className="settings-note">{selectedInvoice.customerName} · Issued {selectedInvoice.issueDate} · Due {selectedInvoice.dueDate}</p><div className="invoice-detail-items">{selectedInvoice.items.map((item, index) => <div className="settings-fact" key={item.id || `${item.description}-${index}`}><span>{item.description} · {item.quantityMilli / 1000} × {money(item.unitPriceMinor, currency)}</span><strong>{money(item.amountMinor, currency)}</strong></div>)}</div><div className="invoice-editor-total"><span>Total</span><strong>{money(selectedInvoice.totalMinor, currency)}</strong></div><div className="invoice-form-actions">{selectedInvoice.status === "draft" ? <><button className="button button-secondary" type="button" disabled={action !== null} onClick={() => editInvoice(selectedInvoice)}>Edit draft</button><button className="button button-primary" type="button" disabled={action !== null} onClick={() => runDetailAction("send", selectedInvoice.id)}>{action === "send" ? "Sending..." : "Send invoice"}</button><button className="button button-secondary" type="button" disabled={action !== null} onClick={() => setDialog({ type: "delete", invoiceId: selectedInvoice.id })}>Delete</button></> : selectedInvoice.status !== "paid" && selectedInvoice.status !== "void" ? <><button className="button button-secondary" type="button" disabled={action !== null} onClick={() => runDetailAction("send", selectedInvoice.id)}>{action === "send" ? "Sending..." : "Send again"}</button><button className="button button-primary" type="button" disabled={action !== null} onClick={() => { setPaidDate(todayIso()); setDialog({ type: "paid", invoiceId: selectedInvoice.id }); }}>Mark paid</button></> : selectedInvoice.status === "paid" ? <span className="invoice-paid-note">Paid {selectedInvoice.paidDate || ""}</span> : null}</div></> : loadingDetail ? <p className="transaction-empty">Loading invoice...</p> : null}
-            {dialog ? <div className="settings-card" role="dialog" aria-modal="true" aria-labelledby="invoice-dialog-title"><h3 id="invoice-dialog-title">{dialog.type === "paid" ? "Record payment" : "Delete draft invoice?"}</h3>{dialog.type === "paid" ? <label className="transaction-field"><span>Payment date</span><input type="date" value={paidDate} onChange={(event) => setPaidDate(event.target.value)} required /></label> : <p>This draft will be permanently deleted.</p>}<div className="invoice-form-actions"><button className={dialog.type === "delete" ? "button danger-button" : "button button-primary"} type="button" disabled={action !== null || (dialog.type === "paid" && !paidDate)} onClick={() => runDetailAction(dialog.type, dialog.invoiceId)}>{action ? "Working..." : dialog.type === "paid" ? "Mark paid" : "Delete invoice"}</button><button className="button button-secondary" type="button" disabled={action !== null} onClick={() => setDialog(null)}>Cancel</button></div></div> : null}
-            <p className={`transaction-message${detailError ? " error" : ""}`} role="status" aria-live="polite">{detailMessage}</p>
-          </section> : null}
         </section>
       </main>
     </AppShell>

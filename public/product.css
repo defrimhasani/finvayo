@@ -699,7 +699,7 @@
 }
 
 .settings-main {
-  max-width: 1280px;
+  max-width: none;
 }
 
 .settings-grid {
@@ -818,8 +818,15 @@
 
 .invoice-workspace {
   display: grid;
-  grid-template-columns: minmax(280px, 0.72fr) minmax(480px, 1.28fr);
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 430px);
   align-items: start;
+  gap: 1rem;
+}
+
+.invoice-primary {
+  display: grid;
+  min-width: 0;
+  align-content: start;
   gap: 1rem;
 }
 
@@ -830,7 +837,48 @@
 }
 
 .invoice-detail {
-  grid-column: 2;
+  grid-column: auto;
+}
+
+.invoice-editor-compact {
+  min-width: 0;
+  align-self: start;
+}
+
+.invoice-editor-compact .invoice-item-row {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 28px;
+}
+
+.invoice-editor-compact .invoice-item-row .transaction-field:first-child {
+  grid-column: 1 / -1;
+}
+
+.invoice-pagination {
+  display: grid;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.invoice-pagination span {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.invoice-pagination .button {
+  min-height: 40px;
+  padding-inline: 0.9rem;
+  cursor: pointer;
+}
+
+.invoice-pagination .button:disabled {
+  cursor: default;
+  opacity: 0.45;
 }
 
 .invoice-filters,
@@ -1507,6 +1555,19 @@
 
   .invoice-workspace { grid-template-columns: 1fr; }
   .invoice-detail { grid-column: 1; }
+  .invoice-editor-compact .invoice-item-row { grid-template-columns: 1fr 1fr 28px; }
+
+  .transactions-layout .transaction-history,
+  .transactions-layout .transaction-form,
+  .parties-layout .party-directory,
+  .parties-layout .party-form {
+    grid-column: 1;
+  }
+
+  .transactions-layout .transaction-history,
+  .parties-layout .party-directory { grid-row: 1; }
+  .transactions-layout .transaction-form,
+  .parties-layout .party-form { grid-row: 2; }
 
   .invoice-item-row {
     grid-template-columns: 1fr 1fr 28px;
@@ -1717,7 +1778,7 @@
 .app-nav a, .sidebar-bottom > a, .logout-form button { min-height: 48px; font-size: 0.82rem; }
 .app-nav a.active { border-left-color: var(--orange); background: var(--orange); color: var(--ink); }
 .user-chip > span { background: var(--orange); }
-.app-main { width: min(calc(100% - 256px), 1500px); margin-left: 256px; padding-inline: clamp(1.5rem, 4vw, 4.5rem); }
+.app-main { width: calc(100% - 256px); max-width: none; margin-left: 256px; padding-inline: clamp(1.5rem, 3vw, 3.5rem); }
 .workspace-header { min-height: 150px; border-bottom: 1px solid var(--line); }
 .workspace-header h1 { font-size: clamp(2.5rem, 4.2vw, 4.5rem); font-weight: 600; }
 .app-kicker, .card-heading > span, .card-heading small, .card-heading h2, .transaction-kind legend, .transaction-field > span { font-size: 0.7rem; line-height: 1.35; }
@@ -1771,6 +1832,14 @@
 .invoice-list-controls { display: grid; gap: 0.65rem; padding: 1rem; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.55); }
 .invoice-list-controls .button { min-height: 44px; cursor: pointer; }
 .invoice-list-controls .button:disabled { cursor: default; opacity: 0.45; }
+.transactions-layout { grid-template-columns: minmax(0, 1fr) minmax(310px, 390px); gap: clamp(1.5rem, 3vw, 3rem); }
+.transactions-layout .transaction-history { grid-column: 1; grid-row: 1; min-width: 0; }
+.transactions-layout .transaction-form { grid-column: 2; grid-row: 1; }
+.parties-layout { grid-template-columns: minmax(0, 1fr) minmax(310px, 390px); gap: clamp(1.5rem, 3vw, 3rem); }
+.parties-layout .party-directory { grid-column: 1; grid-row: 1; min-width: 0; }
+.parties-layout .party-form { grid-column: 2; grid-row: 1; }
+.settings-grid { grid-template-columns: minmax(340px, 460px) minmax(0, 1fr); }
+.workflow-grid { grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); }
 .scenario-page-card { width: min(100%, 760px); margin-top: 1.25rem; }
 .scenario-page-card form { display: grid; gap: 0.75rem; }
 
@@ -1791,4 +1860,9 @@
   .transaction-row, .party-row { grid-template-columns: minmax(0, 1fr) auto; }
   .transaction-actions, .party-row .transaction-actions { grid-column: 1 / -1; flex-wrap: wrap; }
   .invoice-form-actions, .billing-actions { display: grid; grid-template-columns: 1fr; }
+  .invoice-editor-compact .invoice-item-row { grid-template-columns: 1fr; }
+  .invoice-editor-compact .invoice-item-row .transaction-field:first-child { grid-column: auto; }
+  .invoice-editor-compact .invoice-item-row .transaction-delete { justify-self: end; }
+  .invoice-pagination { grid-template-columns: 1fr 1fr; }
+  .invoice-pagination span { grid-column: 1 / -1; grid-row: 1; }
 }
