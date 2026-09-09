@@ -73,6 +73,18 @@ describe("Finvayo Worker", () => {
     expect(response.headers.get("location")).toBe("https://finvayo.test/login?next=/app");
   });
 
+  it("protects every application page and preserves deep-link queries", async () => {
+    const pages = ["transactions", "parties", "invoices", "cash-plan", "scenarios", "reviews", "settings"];
+    for (const page of pages) {
+      const response = await SELF.fetch(`https://finvayo.test/app/${page}`, { redirect: "manual" });
+      expect(response.status).toBe(303);
+      expect(response.headers.get("location")).toBe(`https://finvayo.test/login?next=/app/${page}`);
+    }
+
+    const deepLink = await SELF.fetch("https://finvayo.test/app/transactions?source=scenario&amount=125.00", { redirect: "manual" });
+    expect(deepLink.headers.get("location")).toBe("https://finvayo.test/login?next=/app/transactions?source=scenario&amount=125.00");
+  });
+
   it("creates an account, session, and workspace without approval", async () => {
     const email = `owner-${crypto.randomUUID()}@example.com`;
     const form = new FormData();
@@ -98,6 +110,24 @@ describe("Finvayo Worker", () => {
     expect(html).toContain(email);
     expect(html).toContain('window.__FINVAYO__={"page":"app","preview":false');
     expect(html).toContain(email);
+  });
+
+  it("serves every authenticated application page on direct navigation", async () => {
+    const email = `routes-${crypto.randomUUID()}@example.com`;
+    const form = new FormData();
+    form.set("email", email);
+    form.set("password", "correct-horse-battery-staple");
+    form.set("terms", "on");
+    const signup = await SELF.fetch("https://finvayo.test/auth/signup", { method: "POST", body: form, redirect: "manual" });
+    const cookie = signup.headers.get("set-cookie")?.split(";")[0] ?? "";
+    const pages = ["transactions", "parties", "invoices", "cash-plan", "scenarios", "reviews", "settings"];
+
+    for (const page of pages) {
+      const response = await SELF.fetch(`https://finvayo.test/app/${page}/`, { headers: { cookie } });
+      expect(response.status).toBe(200);
+      expect(response.headers.get("cache-control")).toBe("no-store, private");
+      expect(await response.text()).toContain(`window.__FINVAYO__={"page":"${page}"`);
+    }
   });
 
   it("signs an existing account in and rejects a wrong password", async () => {

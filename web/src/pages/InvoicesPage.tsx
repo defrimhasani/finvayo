@@ -256,7 +256,7 @@ export function InvoicesPage() {
 
   return (
     <AppShell activePage="invoices">
-      <main className="app-main settings-main" id="invoice-main">
+      <main className="app-main settings-main" id="app-main">
         <header className="workspace-header"><div><p className="app-kicker">Get paid</p><h1>Invoices</h1></div><button className="button button-primary" type="button" onClick={() => { resetForm(); scrollToForm(); }}>New invoice</button></header>
         <section className="invoice-workspace" aria-busy={loading}>
           <aside className="settings-card invoice-list-card">

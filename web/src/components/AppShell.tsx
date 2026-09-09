@@ -3,11 +3,16 @@ import type { ReactNode } from "react";
 import { Brand } from "./Brand";
 
 type AppShellProps = {
-  activePage: "overview" | "invoices" | "settings";
+  activePage: "overview" | "transactions" | "parties" | "cash-plan" | "scenarios" | "reviews" | "invoices" | "settings";
   children: ReactNode;
+  preview?: boolean;
 };
 
-export function AppShell({ activePage, children }: AppShellProps) {
+const destinations = [
+  ["overview", "/app", "⌂", "Overview"], ["transactions", "/app/transactions", "↔", "Transactions"], ["parties", "/app/parties", "◎", "Parties"], ["invoices", "/app/invoices", "▤", "Invoices"], ["cash-plan", "/app/cash-plan", "↗", "Cash plan"], ["scenarios", "/app/scenarios", "◇", "Scenarios"], ["reviews", "/app/reviews", "✓", "Reviews"],
+] as const;
+
+export function AppShell({ activePage, children, preview = false }: AppShellProps) {
   const user = window.__FINVAYO__?.user;
   return (
     <div className="app-page">
@@ -15,24 +20,19 @@ export function AppShell({ activePage, children }: AppShellProps) {
       <aside className="app-sidebar">
         <div className="app-wordmark"><Brand /></div>
         <nav className="app-nav" aria-label="Application navigation">
-          <a className={activePage === "overview" ? "active" : ""} href="/app" aria-current={activePage === "overview" ? "page" : undefined}><span aria-hidden="true">⌂</span> Overview</a>
-          <a href="/app#parties"><span aria-hidden="true">◎</span> Parties</a>
-          <a className={activePage === "invoices" ? "active" : ""} href="/app/invoices" aria-current={activePage === "invoices" ? "page" : undefined}><span aria-hidden="true">▤</span> Invoices</a>
-          <a href="/app#cash-plan"><span aria-hidden="true">↗</span> Cash plan</a>
+          {destinations.map(([key, href, icon, label]) => <a key={key} className={activePage === key ? "active" : ""} href={preview ? (key === "overview" ? "/app/preview" : "/signup") : href} aria-current={activePage === key ? "page" : undefined}><span aria-hidden="true">{icon}</span> {label}</a>)}
         </nav>
         <div className="sidebar-bottom">
-          <a className={activePage === "settings" ? "active" : ""} href="/app/settings" aria-current={activePage === "settings" ? "page" : undefined}><span aria-hidden="true">⚙</span> Settings</a>
-          <form className="logout-form" action="/auth/logout" method="post"><button type="submit"><span aria-hidden="true">↪</span> Sign out</button></form>
-          <div className="user-chip"><span>FV</span><div><strong>{user?.workspaceName ?? "Workspace"}</strong><small>{user?.email ?? ""}</small></div></div>
+          <a className={activePage === "settings" ? "active" : ""} href={preview ? "/signup" : "/app/settings"} aria-current={activePage === "settings" ? "page" : undefined}><span aria-hidden="true">⚙</span> Settings</a>
+          {preview ? <a href="/login"><span aria-hidden="true">↪</span> Leave preview</a> : <form className="logout-form" action="/auth/logout" method="post"><button type="submit"><span aria-hidden="true">↪</span> Sign out</button></form>}
+          <div className="user-chip"><span>FV</span><div><strong>{user?.workspaceName ?? "Demo workspace"}</strong><small>{user?.email ?? "Sample data"}</small></div></div>
         </div>
       </aside>
-      <header className="mobile-app-header"><Brand /><a href="/app">Overview</a></header>
+      <header className="mobile-app-header"><Brand /><a href={preview ? "/app/preview" : "/app"}>Overview</a></header>
       {children}
-      <nav className="mobile-bottom-nav settings-mobile-nav" aria-label="Mobile application navigation">
-        <a className={activePage === "overview" ? "active" : ""} href="/app"><span aria-hidden="true">⌂</span>Overview</a>
-        <a href="/app#parties"><span aria-hidden="true">◎</span>Parties</a>
-        <a className={activePage === "invoices" ? "active" : ""} href="/app/invoices"><span aria-hidden="true">▤</span>Invoices</a>
-        <a className={activePage === "settings" ? "active" : ""} href="/app/settings"><span aria-hidden="true">⚙</span>Settings</a>
+      <nav className="mobile-bottom-nav" aria-label="Mobile application navigation">
+        {destinations.map(([key, href, icon, label]) => <a key={key} className={activePage === key ? "active" : ""} href={preview ? (key === "overview" ? "/app/preview" : "/signup") : href}><span aria-hidden="true">{icon}</span>{label}</a>)}
+        <a className={activePage === "settings" ? "active" : ""} href={preview ? "/signup" : "/app/settings"}><span aria-hidden="true">⚙</span>Settings</a>
       </nav>
     </div>
   );

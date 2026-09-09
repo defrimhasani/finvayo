@@ -1748,14 +1748,18 @@
 .scenario-card .button { opacity: 1; }
 .scenario-card .button:disabled { opacity: 0.55; }
 .mobile-bottom-nav { padding-bottom: env(safe-area-inset-bottom); }
+.dedicated-card { margin-top: 1.25rem; }
+.overview-upcoming, .cash-plan-ledger { margin-top: 1.25rem; }
+.scenario-page-card { width: min(100%, 760px); margin-top: 1.25rem; }
+.scenario-page-card form { display: grid; gap: 0.75rem; }
 
 @media (max-width: 760px) {
   .login-header, .login-footer, .login-layout { width: min(100% - 2rem, 1380px); }
   .login-layout { grid-template-columns: 1fr; }
   .app-main { width: 100%; margin-left: 0; }
   .mobile-app-header { padding-top: env(safe-area-inset-top); }
-  .mobile-bottom-nav { height: calc(68px + env(safe-area-inset-bottom)); }
-  .mobile-bottom-nav a { font-size: 0.65rem; touch-action: manipulation; }
+  .mobile-bottom-nav { display: flex; height: calc(68px + env(safe-area-inset-bottom)); overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+  .mobile-bottom-nav a { min-width: 86px; flex: 0 0 86px; font-size: 0.65rem; touch-action: manipulation; }
 }
 
 @media (max-width: 520px) {

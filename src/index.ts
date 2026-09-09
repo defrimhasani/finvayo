@@ -73,7 +73,8 @@ async function renderApp(request: Request, env: Env, preview: boolean): Promise<
 
 async function renderAuthenticatedPage(request: Request, env: Env, page: string): Promise<Response> {
   const user = await currentUser(request, env.DB);
-  if (!user) return redirect(request, `/login?next=${new URL(request.url).pathname}`);
+  const url = new URL(request.url);
+  if (!user) return redirect(request, `/login?next=${url.pathname}${url.search}`);
   return renderReact(request, env, {
     page,
     user: {
@@ -160,6 +161,7 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
 
 async function handleRequest(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
+  const appPath = url.pathname.replace(/\/+$/, "") || "/";
 
   if (url.pathname === "/health") {
     if (request.method !== "GET" && request.method !== "HEAD") {
@@ -242,19 +244,24 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
     return Response.json({ error: "Not found" }, { status: 404, headers: JSON_HEADERS });
   }
 
-  if (url.pathname === "/app" || url.pathname === "/app/") {
+  if (appPath === "/app") {
     return renderApp(request, env, false);
   }
 
-  if (url.pathname === "/app/preview" || url.pathname === "/app/preview/") {
+  if (appPath === "/app/preview") {
     return renderApp(request, env, true);
   }
 
-  if (url.pathname === "/app/settings" || url.pathname === "/app/settings/") {
-    return renderAuthenticatedPage(request, env, "settings");
-  }
-
-  if (url.pathname === "/app/invoices" || url.pathname === "/app/invoices/") return renderAuthenticatedPage(request, env, "invoices");
+  const appPages: Record<string, string> = {
+    "/app/transactions": "transactions",
+    "/app/parties": "parties",
+    "/app/invoices": "invoices",
+    "/app/cash-plan": "cash-plan",
+    "/app/scenarios": "scenarios",
+    "/app/reviews": "reviews",
+    "/app/settings": "settings",
+  };
+  if (appPages[appPath]) return renderAuthenticatedPage(request, env, appPages[appPath]);
 
   const publicInvoiceMatch = url.pathname.match(/^\/invoice\/([A-Za-z0-9_-]+)$/);
   if (publicInvoiceMatch && request.method === "GET") return publicInvoice(request, env.DB, publicInvoiceMatch[1]);

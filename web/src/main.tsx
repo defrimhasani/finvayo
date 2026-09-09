@@ -11,6 +11,11 @@ import { NotFoundPage } from "./pages/NotFoundPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { SignupPage } from "./pages/SignupPage";
 import SettingsPage from "./pages/SettingsPage";
+import TransactionsPage from "./pages/TransactionsPage";
+import PartiesPage from "./pages/PartiesPage";
+import CashPlanPage from "./pages/CashPlanPage";
+import ScenariosPage from "./pages/ScenariosPage";
+import ReviewsPage from "./pages/ReviewsPage";
 import { setPageMetadata } from "./utils/page";
 import "./types";
 
@@ -48,10 +53,39 @@ switch (path) {
     page = <ResetPasswordPage token={bootstrap.resetToken} />;
     break;
   case "/app":
-  case "/app/preview":
     document.body.className = "app-page";
     setPageMetadata("Overview | Finvayo", "#f2efe8", { robots: "noindex, noarchive" });
     page = <AppPage />;
+    break;
+  case "/app/preview":
+    document.body.className = "app-page";
+    setPageMetadata("Product preview | Finvayo", "#f2efe8", { robots: "noindex, noarchive", description: "Explore a sample Finvayo cash overview." });
+    page = <AppPage />;
+    break;
+  case "/app/transactions":
+    document.body.className = "app-page";
+    setPageMetadata("Transactions | Finvayo", "#f2efe8", { robots: "noindex, noarchive", description: "Record and manage business cash movements." });
+    page = <TransactionsPage />;
+    break;
+  case "/app/parties":
+    document.body.className = "app-page";
+    setPageMetadata("Parties | Finvayo", "#f2efe8", { robots: "noindex, noarchive", description: "Manage customers and suppliers." });
+    page = <PartiesPage />;
+    break;
+  case "/app/cash-plan":
+    document.body.className = "app-page";
+    setPageMetadata("Cash plan | Finvayo", "#f2efe8", { robots: "noindex, noarchive", description: "Review your 90-day cash forecast." });
+    page = <CashPlanPage />;
+    break;
+  case "/app/scenarios":
+    document.body.className = "app-page";
+    setPageMetadata("Scenarios | Finvayo", "#f2efe8", { robots: "noindex, noarchive", description: "Test a purchase against your cash plan." });
+    page = <ScenariosPage />;
+    break;
+  case "/app/reviews":
+    document.body.className = "app-page";
+    setPageMetadata("Reviews | Finvayo", "#f2efe8", { robots: "noindex, noarchive", description: "Complete weekly cash reviews and payment follow-ups." });
+    page = <ReviewsPage />;
     break;
   case "/app/settings":
     document.body.className = "app-page";

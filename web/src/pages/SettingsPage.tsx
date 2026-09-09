@@ -240,7 +240,7 @@ export function SettingsPage() {
 
   return (
     <AppShell activePage="settings">
-      <main className="app-main settings-main" id="settings-main">
+      <main className="app-main settings-main" id="app-main">
         <header className="workspace-header">
           <div><p className="app-kicker">Workspace controls</p><h1>Settings</h1></div>
         </header>
