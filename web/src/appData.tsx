@@ -34,6 +34,27 @@ export const previewOverview: Overview = {
 
 export const previewEntries: CashEntry[] = [{ id: "preview-income", direction: "inflow", name: "Acme Studio project", amountMinor: 240000, scheduledDate: today(), status: "overdue", included: true, partyName: "Acme Studio", invoiceReference: "INV-024", category: "service_income" }, { id: "preview-expense", direction: "outflow", name: "Design software", amountMinor: 4900, actualAmountMinor: 4900, scheduledDate: today(), status: "paid", partyName: "Creative Cloud", category: "software" }];
 
+export type CategoryActivity = { category: string; label: string; amountMinor: number; count: number };
+
+export function categoryActivity(entries: CashEntry[], direction: Direction): CategoryActivity[] {
+  const labels = new Map(categories[direction]);
+  const totals = new Map<string, CategoryActivity>();
+  for (const entry of entries) {
+    if (entry.direction !== direction) continue;
+    const category = entry.category || (direction === "inflow" ? "other_income" : "other");
+    const current = totals.get(category) ?? {
+      category,
+      label: labels.get(category) || category.replaceAll("_", " ").replace(/^./, (character) => character.toUpperCase()),
+      amountMinor: 0,
+      count: 0,
+    };
+    current.amountMinor += entry.status === "paid" && entry.actualAmountMinor != null ? entry.actualAmountMinor : entry.amountMinor;
+    current.count += 1;
+    totals.set(category, current);
+  }
+  return [...totals.values()].sort((first, second) => second.amountMinor - first.amountMinor);
+}
+
 export function PageHeader({ kicker, title, children }: { kicker: string; title: string; children?: ReactNode }) {
   return <header className="workspace-header"><div><p className="app-kicker">{kicker}</p><h1>{title}</h1></div>{children}</header>;
 }

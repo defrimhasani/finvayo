@@ -5,6 +5,7 @@ import { AppShell } from "../components/AppShell";
 import { addDays, amountMinor, money, todayIso } from "../utils";
 
 type Filter = "all" | "draft" | "sent" | "overdue" | "paid";
+type InvoiceSort = "created-desc" | "due-asc" | "due-desc" | "amount-desc" | "amount-asc" | "customer-asc" | "status-asc";
 type InvoiceSummary = { id: string; invoiceNumber: string; issueDate: string; dueDate: string; status: string; totalMinor: number; customerName: string };
 type InvoiceItem = { id?: string; description: string; quantityMilli: number; unitPriceMinor: number; amountMinor: number };
 type Invoice = InvoiceSummary & { customerId: string; taxRateBasisPoints: number; notes: string | null; paidDate: string | null; items: InvoiceItem[] };
@@ -14,6 +15,7 @@ type InvoiceForm = { customerId: string; invoiceNumber: string; issueDate: strin
 type Dialog = { type: "paid" | "delete"; invoiceId: string } | null;
 
 const FILTERS: Filter[] = ["all", "draft", "sent", "overdue", "paid"];
+const SORTS: InvoiceSort[] = ["created-desc", "due-asc", "due-desc", "amount-desc", "amount-asc", "customer-asc", "status-asc"];
 let itemSequence = 0;
 
 function newItem(item?: InvoiceItem): ItemForm {
@@ -34,9 +36,12 @@ function emptyForm(): InvoiceForm {
 function initialQuery() {
   const params = new URLSearchParams(window.location.search);
   const value = params.get("filter");
+  const sort = params.get("sort");
   return {
     filter: FILTERS.includes(value as Filter) ? value as Filter : "all" as Filter,
     invoiceId: params.get("invoice"),
+    search: params.get("q") ?? "",
+    sort: SORTS.includes(sort as InvoiceSort) ? sort as InvoiceSort : "created-desc" as InvoiceSort,
   };
 }
 
@@ -59,6 +64,8 @@ export function InvoicesPage() {
   const [parties, setParties] = useState<Party[]>([]);
   const [currency, setCurrency] = useState("USD");
   const [filter, setFilter] = useState<Filter>(query.current.filter);
+  const [search, setSearch] = useState(query.current.search);
+  const [sort, setSort] = useState<InvoiceSort>(query.current.sort);
   const [selectedId, setSelectedId] = useState<string | null>(query.current.invoiceId);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [form, setForm] = useState<InvoiceForm>(emptyForm);
@@ -146,6 +153,22 @@ export function InvoicesPage() {
   function selectFilter(value: Filter) {
     setFilter(value);
     setQueryState("filter", value, "all");
+  }
+
+  function updateSearch(value: string) {
+    setSearch(value);
+    setQueryState("q", value.trim() || null);
+  }
+
+  function updateSort(value: InvoiceSort) {
+    setSort(value);
+    setQueryState("sort", value, "created-desc");
+  }
+
+  function clearInvoiceFilters() {
+    selectFilter("all");
+    updateSearch("");
+    updateSort("created-desc");
   }
 
   function resetForm() {
@@ -252,7 +275,21 @@ export function InvoicesPage() {
     }
   }
 
-  const visibleInvoices = invoices.filter((invoice) => filter === "all" || invoice.status === filter);
+  const normalizedSearch = search.trim().toLocaleLowerCase();
+  const visibleInvoices = invoices.filter((invoice) => {
+    const matchesStatus = filter === "all" || invoice.status === filter;
+    const matchesSearch = !normalizedSearch || `${invoice.invoiceNumber} ${invoice.customerName}`.toLocaleLowerCase().includes(normalizedSearch);
+    return matchesStatus && matchesSearch;
+  }).sort((first, second) => {
+    if (sort === "due-asc") return first.dueDate.localeCompare(second.dueDate);
+    if (sort === "due-desc") return second.dueDate.localeCompare(first.dueDate);
+    if (sort === "amount-desc") return second.totalMinor - first.totalMinor;
+    if (sort === "amount-asc") return first.totalMinor - second.totalMinor;
+    if (sort === "customer-asc") return first.customerName.localeCompare(second.customerName, undefined, { sensitivity: "base" });
+    if (sort === "status-asc") return first.status.localeCompare(second.status) || first.dueDate.localeCompare(second.dueDate);
+    return second.issueDate.localeCompare(first.issueDate) || second.invoiceNumber.localeCompare(first.invoiceNumber);
+  });
+  const invoiceFiltersActive = filter !== "all" || search !== "" || sort !== "created-desc";
 
   return (
     <AppShell activePage="invoices">
@@ -260,9 +297,14 @@ export function InvoicesPage() {
         <header className="workspace-header"><div><p className="app-kicker">Get paid</p><h1>Invoices</h1></div><button className="button button-primary" type="button" onClick={() => { resetForm(); scrollToForm(); }}>New invoice</button></header>
         <section className="invoice-workspace" aria-busy={loading}>
           <aside className="settings-card invoice-list-card">
-            <div className="section-row"><div><p className="app-kicker">Documents</p><h2>All Invoices</h2></div><span>{invoices.length} {invoices.length === 1 ? "invoice" : "invoices"}</span></div>
+            <div className="section-row"><div><p className="app-kicker">Documents</p><h2>All Invoices</h2></div><span>{visibleInvoices.length} of {invoices.length}</span></div>
             <div className="invoice-filters" aria-label="Filter invoices">{FILTERS.map((value) => <button key={value} className={filter === value ? "active" : ""} type="button" aria-pressed={filter === value} onClick={() => selectFilter(value)}>{value[0].toUpperCase() + value.slice(1)}</button>)}</div>
-            <div>{visibleInvoices.length ? visibleInvoices.map((invoice) => <button key={invoice.id} className="invoice-list-row" type="button" aria-current={selectedId === invoice.id} onClick={() => selectInvoice(invoice.id)}><span><strong>{invoice.invoiceNumber}</strong><small>{invoice.customerName} · Due {invoice.dueDate}</small></span><span className={`invoice-status ${invoice.status}`}>{invoice.status}</span><b>{money(invoice.totalMinor, currency)}</b></button>) : <p className="transaction-empty">No invoices in this view.</p>}</div>
+            <div className="invoice-list-controls" aria-label="Search and sort invoices">
+              <label className="transaction-field"><span>Search</span><input type="search" value={search} onChange={(event) => updateSearch(event.target.value)} placeholder="Invoice or customer…" /></label>
+              <label className="transaction-field"><span>Sort by</span><select value={sort} onChange={(event) => updateSort(event.target.value as InvoiceSort)}><option value="created-desc">Newest issued</option><option value="due-asc">Due soonest</option><option value="due-desc">Due latest</option><option value="amount-desc">Highest amount</option><option value="amount-asc">Lowest amount</option><option value="customer-asc">Customer A-Z</option><option value="status-asc">Status</option></select></label>
+              <button className="button button-secondary" type="button" disabled={!invoiceFiltersActive} onClick={clearInvoiceFilters}>Clear filters</button>
+            </div>
+            <div aria-live="polite">{visibleInvoices.length ? visibleInvoices.map((invoice) => <button key={invoice.id} className="invoice-list-row" type="button" aria-current={selectedId === invoice.id} onClick={() => selectInvoice(invoice.id)}><span><strong>{invoice.invoiceNumber}</strong><small>{invoice.customerName} · Due {invoice.dueDate}</small></span><span className={`invoice-status ${invoice.status}`}>{invoice.status}</span><b>{money(invoice.totalMinor, currency)}</b></button>) : <p className="transaction-empty">{invoices.length ? "No invoices match these filters." : "No invoices yet."}</p>}</div>
           </aside>
 
           <form className="settings-card invoice-form" ref={formRef} onSubmit={saveInvoice}>

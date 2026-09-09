@@ -1750,10 +1750,32 @@
 .mobile-bottom-nav { padding-bottom: env(safe-area-inset-bottom); }
 .dedicated-card { margin-top: 1.25rem; }
 .overview-upcoming, .cash-plan-ledger { margin-top: 1.25rem; }
+.category-activity-section { margin-top: 1.25rem; padding: clamp(1.4rem, 3vw, 2.5rem); border: 1px solid var(--ink); background: var(--paper-light); box-shadow: 5px 5px 0 rgba(23, 24, 21, 0.12); }
+.category-activity-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; margin-top: 1.5rem; }
+.category-chart { min-width: 0; padding: 1.25rem; border: 1px solid var(--line); background: white; }
+.category-chart-heading, .category-bar-label { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+.category-chart-heading span, .category-chart-heading small, .category-bar-row small { font-family: var(--mono); font-size: 0.65rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.category-chart-heading strong { display: block; margin-top: 0.35rem; font-size: clamp(1.35rem, 2vw, 2rem); font-variant-numeric: tabular-nums; }
+.category-bars { display: grid; gap: 1rem; margin-top: 1.5rem; }
+.category-bar-row { display: grid; gap: 0.4rem; }
+.category-bar-label span { overflow-wrap: anywhere; font-size: 0.78rem; font-weight: 650; }
+.category-bar-label strong { font-family: var(--mono); font-size: 0.7rem; font-variant-numeric: tabular-nums; }
+.category-bar-track { height: 12px; border: 1px solid var(--ink); background: var(--paper); }
+.category-bar-track span { display: block; height: 100%; background: var(--acid); }
+.category-chart.outflow .category-bar-track span { background: var(--orange); }
+.category-bar-row small { color: #66706b; }
+.transaction-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.65rem; margin: 1rem 0 1.25rem; padding: 1rem; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.55); }
+.transaction-search { grid-column: 1 / -1; }
+.transaction-clear { min-height: 48px; align-self: end; cursor: pointer; }
+.transaction-clear:disabled { cursor: default; opacity: 0.45; }
+.invoice-list-controls { display: grid; gap: 0.65rem; padding: 1rem; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.55); }
+.invoice-list-controls .button { min-height: 44px; cursor: pointer; }
+.invoice-list-controls .button:disabled { cursor: default; opacity: 0.45; }
 .scenario-page-card { width: min(100%, 760px); margin-top: 1.25rem; }
 .scenario-page-card form { display: grid; gap: 0.75rem; }
 
 @media (max-width: 760px) {
+  .category-activity-grid { grid-template-columns: 1fr; }
   .login-header, .login-footer, .login-layout { width: min(100% - 2rem, 1380px); }
   .login-layout { grid-template-columns: 1fr; }
   .app-main { width: 100%; margin-left: 0; }
@@ -1763,6 +1785,8 @@
 }
 
 @media (max-width: 520px) {
+  .transaction-controls { grid-template-columns: 1fr; }
+  .transaction-search { grid-column: auto; }
   .safe-card, .action-card, .outlook-card, .ledger-card, .scenario-card, .transactions-card, .parties-card, .settings-card { box-shadow: 3px 3px 0 rgba(23, 24, 21, 0.12); }
   .transaction-row, .party-row { grid-template-columns: minmax(0, 1fr) auto; }
   .transaction-actions, .party-row .transaction-actions { grid-column: 1 / -1; flex-wrap: wrap; }
