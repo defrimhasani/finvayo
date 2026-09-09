@@ -60,6 +60,7 @@ async function renderReact(request: Request, env: Env, bootstrap: Record<string,
 async function renderApp(request: Request, env: Env, preview: boolean): Promise<Response> {
   const user = preview ? null : await currentUser(request, env.DB);
   if (!preview && !user) return redirect(request, "/login?next=/app");
+  if (user?.isPlatformAdmin) return redirect(request, "/admin");
   return renderReact(request, env, {
     page: "app",
     preview,
@@ -77,6 +78,7 @@ async function renderAuthenticatedPage(request: Request, env: Env, page: string)
   const user = await currentUser(request, env.DB);
   const url = new URL(request.url);
   if (!user) return redirect(request, `/login?next=${url.pathname}${url.search}`);
+  if (user.isPlatformAdmin && page !== "admin") return redirect(request, "/admin");
   return renderReact(request, env, {
     page,
     user: {
@@ -145,10 +147,11 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
   const user = await env.DB
     .prepare(
       `SELECT id, password_hash AS passwordHash, password_salt AS passwordSalt,
-        password_iterations AS passwordIterations FROM users WHERE email = ?`,
+        password_iterations AS passwordIterations, is_platform_admin AS isPlatformAdmin
+       FROM users WHERE email = ?`,
     )
     .bind(email)
-    .first<{ id: string; passwordHash: string; passwordSalt: string; passwordIterations: number }>();
+    .first<{ id: string; passwordHash: string; passwordSalt: string; passwordIterations: number; isPlatformAdmin: number }>();
   if (!user || !(await verifyPassword(password, user.passwordHash, user.passwordSalt, user.passwordIterations))) {
     return redirect(request, "/login?error=credentials");
   }
@@ -159,7 +162,7 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
       .bind(upgraded.hash, upgraded.salt, user.id)
       .run();
   }
-  return redirect(request, "/app", sessionCookie(await createSession(env.DB, user.id)));
+  return redirect(request, user.isPlatformAdmin ? "/admin" : "/app", sessionCookie(await createSession(env.DB, user.id)));
 }
 
 async function handleRequest(request: Request, env: Env): Promise<Response> {

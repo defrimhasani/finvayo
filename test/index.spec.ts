@@ -147,11 +147,24 @@ describe("Finvayo Worker", () => {
     const businessRecord = await env.DB.prepare("SELECT workspaces.id FROM workspaces JOIN users ON users.id = workspaces.owner_user_id WHERE users.email = ?").bind(business.email).first<{ id: string }>();
     await env.DB.prepare("UPDATE users SET is_platform_admin = 1 WHERE id = ?").bind(adminRecord?.id).run();
 
+    const loginForm = new FormData();
+    loginForm.set("email", admin.email);
+    loginForm.set("password", "correct-horse-battery-staple");
+    const adminLogin = await SELF.fetch("https://finvayo.test/auth/login", { method: "POST", body: loginForm, redirect: "manual" });
+    expect(adminLogin.status).toBe(303);
+    expect(adminLogin.headers.get("location")).toBe("https://finvayo.test/admin");
+
     const forbidden = await SELF.fetch("https://finvayo.test/api/admin/workspaces", { headers: { cookie: business.cookie } });
     expect(forbidden.status).toBe(403);
     const redirected = await SELF.fetch("https://finvayo.test/admin", { headers: { cookie: business.cookie }, redirect: "manual" });
     expect(redirected.status).toBe(303);
     expect(redirected.headers.get("location")).toBe("https://finvayo.test/app");
+
+    for (const path of ["/app", "/app/transactions", "/app/settings"]) {
+      const appRedirect = await SELF.fetch(`https://finvayo.test${path}`, { headers: { cookie: admin.cookie }, redirect: "manual" });
+      expect(appRedirect.status).toBe(303);
+      expect(appRedirect.headers.get("location")).toBe("https://finvayo.test/admin");
+    }
 
     const adminPage = await SELF.fetch("https://finvayo.test/admin", { headers: { cookie: admin.cookie } });
     expect(adminPage.status).toBe(200);
