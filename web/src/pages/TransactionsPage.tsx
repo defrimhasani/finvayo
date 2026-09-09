@@ -16,6 +16,33 @@ import {
   validPositiveAmount,
 } from "../appData";
 import { AppShell } from "../components/AppShell";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "../components/ui/alert-dialog";
+import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
+import { Card } from "../components/ui/card";
+import { Checkbox } from "../components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { money } from "../utils";
 
 type SortOrder = "date-desc" | "date-asc" | "amount-desc" | "amount-asc" | "name-asc";
@@ -57,6 +84,11 @@ export default function TransactionsPage() {
   const [busy, setBusy] = useState(false);
   const [filters, setFilters] = useState({ search: "", direction: "all", status: "all", category: "all" });
   const [sortOrder, setSortOrder] = useState<SortOrder>("date-desc");
+  const [markPaidEntry, setMarkPaidEntry] = useState<CashEntry | null>(null);
+  const [markPaidAmount, setMarkPaidAmount] = useState("");
+  const [markPaidDate, setMarkPaidDate] = useState("");
+  const [markPaidError, setMarkPaidError] = useState("");
+  const [markPaidBusy, setMarkPaidBusy] = useState(false);
 
   async function load() {
     const [financials, directory] = await Promise.all([
@@ -137,20 +169,42 @@ export default function TransactionsPage() {
       await api(`/api/cash-entries/${id}`, { method: "PATCH", body: JSON.stringify(payload) });
       await load();
       if (success) setMessage(success);
+      return true;
     } catch (error) {
       setMessage(fail(error, "Unable to update transaction."));
+      return false;
     }
   }
 
-  async function markPaid(entry: CashEntry) {
-    const amount = window.prompt("Actual amount", (effectiveAmount(entry) / 100).toFixed(2));
-    const actualDate = window.prompt("Actual date (YYYY-MM-DD)", new Date().toISOString().slice(0, 10));
-    if (amount === null || actualDate === null || !validPositiveAmount(amount) || !validIsoDate(actualDate)) return;
-    await patchEntry(entry.id, { status: "paid", actualAmountMinor: Math.round(Number(amount) * 100), actualDate }, "Transaction marked paid.");
+  function openMarkPaid(entry: CashEntry) {
+    setMarkPaidEntry(entry);
+    setMarkPaidAmount((effectiveAmount(entry) / 100).toFixed(2));
+    setMarkPaidDate(new Date().toISOString().slice(0, 10));
+    setMarkPaidError("");
+  }
+
+  async function markPaid(event: FormEvent) {
+    event.preventDefault();
+    if (!markPaidEntry) return;
+    if (!validPositiveAmount(markPaidAmount)) {
+      setMarkPaidError("Enter a valid positive amount with up to two decimal places.");
+      return;
+    }
+    if (!validIsoDate(markPaidDate)) {
+      setMarkPaidError("Enter a valid date.");
+      return;
+    }
+    setMarkPaidBusy(true);
+    const updated = await patchEntry(markPaidEntry.id, {
+      status: "paid",
+      actualAmountMinor: Math.round(Number(markPaidAmount) * 100),
+      actualDate: markPaidDate,
+    }, "Transaction marked paid.");
+    setMarkPaidBusy(false);
+    if (updated) setMarkPaidEntry(null);
   }
 
   async function remove(entry: CashEntry) {
-    if (!window.confirm("Delete this transaction?")) return;
     try {
       await api(`/api/cash-entries/${entry.id}`, { method: "DELETE" });
       await load();
@@ -181,36 +235,49 @@ export default function TransactionsPage() {
 
   return <AppShell activePage="transactions"><main className="app-main" id="app-main">
     <PageHeader kicker="Money movement" title="Transactions" />
-    <section className="transactions-card dedicated-card">
+    <Card className="transactions-card dedicated-card">
       <div className="transactions-heading"><div><p className="app-kicker">Cash entries</p><h2>Record a transaction</h2></div><p>Log completed payments and expenses, or add expected movements to your cash plan.</p></div>
       <div className="transactions-layout">
         <form className="transaction-form" id="transaction-form" onSubmit={submit}>
-          <fieldset className="transaction-kind" disabled={busy}><legend>Transaction type</legend>{(["inflow", "outflow"] as Direction[]).map((value) => <label key={value}><input type="radio" checked={transaction.direction === value} onChange={() => setTransaction({ ...transaction, direction: value, category: categories[value][0][0], partyId: "", status: value === "inflow" ? "expected" : "planned" })} /><span>{value === "inflow" ? "Payment received" : "Expense paid"}</span></label>)}</fieldset>
-          <fieldset className="transaction-kind" disabled={busy}><legend>Timing</legend>{(["recorded", "planned"] as Timing[]).map((value) => <label key={value}><input type="radio" checked={transaction.timing === value} onChange={() => setTransaction({ ...transaction, timing: value })} /><span>{value === "recorded" ? "Already happened" : "Expected / planned"}</span></label>)}</fieldset>
-          <label className="transaction-field"><span>Description</span><input maxLength={120} required value={transaction.name} onChange={(event) => setTransaction({ ...transaction, name: event.target.value })} disabled={busy} /></label>
-          <div className="transaction-fields"><label className="transaction-field"><span>Amount</span><input inputMode="decimal" required value={transaction.amount} onChange={(event) => setTransaction({ ...transaction, amount: event.target.value })} disabled={busy} /></label><label className="transaction-field"><span>Date</span><input type="date" required value={transaction.date} onChange={(event) => setTransaction({ ...transaction, date: event.target.value })} disabled={busy} /></label></div>
-          <label className="transaction-field"><span>{transaction.direction === "inflow" ? "Customer" : "Supplier"}</span><select value={transaction.partyId} onChange={(event) => setTransaction({ ...transaction, partyId: event.target.value })} disabled={busy}><option value="">No registered {transaction.direction === "inflow" ? "customer" : "supplier"}</option>{allowedParties.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-          {transaction.direction === "inflow" && <label className="transaction-field"><span>Invoice reference</span><input maxLength={80} value={transaction.invoiceReference} onChange={(event) => setTransaction({ ...transaction, invoiceReference: event.target.value })} disabled={busy} /></label>}
-          <label className="transaction-field"><span>Category</span><select value={transaction.category} onChange={(event) => setTransaction({ ...transaction, category: event.target.value })} disabled={busy}>{categories[transaction.direction].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-          {transaction.timing === "planned" && <><label className="transaction-field"><span>Status</span><select value={transaction.status} onChange={(event) => setTransaction({ ...transaction, status: event.target.value })} disabled={busy}>{(transaction.direction === "inflow" ? [["expected", "Expected"], ["invoiced", "Invoiced"], ["unlikely", "Unlikely"]] : [["planned", "Planned"]]).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label className="terms-check"><input type="checkbox" checked={transaction.recurring} onChange={(event) => setTransaction({ ...transaction, recurring: event.target.checked })} disabled={busy} /><span>Repeat monthly</span></label></>}
-          <button className="button button-primary" type="submit" disabled={busy}>{editingId ? "Save transaction" : "Add transaction"}</button>
-          {editingId && <button className="button button-secondary" type="button" onClick={reset}>Cancel edit</button>}
+          <RadioGroup className="transaction-kind" value={transaction.direction} onValueChange={(value: Direction) => setTransaction({ ...transaction, direction: value, category: categories[value][0][0], partyId: "", status: value === "inflow" ? "expected" : "planned" })} disabled={busy} aria-label="Transaction type"><Label className="col-span-full mb-[0.45rem]">Transaction type</Label>{(["inflow", "outflow"] as Direction[]).map((value) => <Label key={value}><RadioGroupItem className="peer absolute opacity-0" value={value} /><span className="peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-secondary peer-data-[state=checked]:font-bold peer-data-[state=checked]:text-foreground peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2">{value === "inflow" ? "Payment received" : "Expense paid"}</span></Label>)}</RadioGroup>
+          <RadioGroup className="transaction-kind" value={transaction.timing} onValueChange={(value: Timing) => setTransaction({ ...transaction, timing: value })} disabled={busy} aria-label="Timing"><Label className="col-span-full mb-[0.45rem]">Timing</Label>{(["recorded", "planned"] as Timing[]).map((value) => <Label key={value}><RadioGroupItem className="peer absolute opacity-0" value={value} /><span className="peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-secondary peer-data-[state=checked]:font-bold peer-data-[state=checked]:text-foreground peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2">{value === "recorded" ? "Already happened" : "Expected / planned"}</span></Label>)}</RadioGroup>
+          <Label className="transaction-field"><span>Description</span><Input maxLength={120} required value={transaction.name} onChange={(event) => setTransaction({ ...transaction, name: event.target.value })} disabled={busy} /></Label>
+          <div className="transaction-fields"><Label className="transaction-field"><span>Amount</span><Input inputMode="decimal" required value={transaction.amount} onChange={(event) => setTransaction({ ...transaction, amount: event.target.value })} disabled={busy} /></Label><Label className="transaction-field"><span>Date</span><Input type="date" required value={transaction.date} onChange={(event) => setTransaction({ ...transaction, date: event.target.value })} disabled={busy} /></Label></div>
+          <div className="transaction-field"><Label className="mb-[0.45rem] block text-[0.58rem]" htmlFor="transaction-party">{transaction.direction === "inflow" ? "Customer" : "Supplier"}</Label><Select value={transaction.partyId || "__none__"} onValueChange={(value) => setTransaction({ ...transaction, partyId: value === "__none__" ? "" : value })} disabled={busy}><SelectTrigger id="transaction-party"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="__none__">No registered {transaction.direction === "inflow" ? "customer" : "supplier"}</SelectItem>{allowedParties.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent></Select></div>
+          {transaction.direction === "inflow" && <Label className="transaction-field"><span>Invoice reference</span><Input maxLength={80} value={transaction.invoiceReference} onChange={(event) => setTransaction({ ...transaction, invoiceReference: event.target.value })} disabled={busy} /></Label>}
+          <div className="transaction-field"><Label className="mb-[0.45rem] block text-[0.58rem]" htmlFor="transaction-category">Category</Label><Select value={transaction.category} onValueChange={(value) => setTransaction({ ...transaction, category: value })} disabled={busy}><SelectTrigger id="transaction-category"><SelectValue /></SelectTrigger><SelectContent>{categories[transaction.direction].map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select></div>
+          {transaction.timing === "planned" && <><div className="transaction-field"><Label className="mb-[0.45rem] block text-[0.58rem]" htmlFor="transaction-status">Status</Label><Select value={transaction.status} onValueChange={(value) => setTransaction({ ...transaction, status: value })} disabled={busy}><SelectTrigger id="transaction-status"><SelectValue /></SelectTrigger><SelectContent>{(transaction.direction === "inflow" ? [["expected", "Expected"], ["invoiced", "Invoiced"], ["unlikely", "Unlikely"]] : [["planned", "Planned"]]).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select></div><Label className="terms-check"><Checkbox checked={transaction.recurring} onCheckedChange={(checked) => setTransaction({ ...transaction, recurring: checked === true })} disabled={busy} /><span>Repeat monthly</span></Label></>}
+          <Button className="button button-primary" type="submit" disabled={busy}>{editingId ? "Save transaction" : "Add transaction"}</Button>
+          {editingId && <Button className="button button-secondary" variant="secondary" type="button" onClick={reset}>Cancel edit</Button>}
           <p className="transaction-message" role="status" aria-live="polite">{message}</p>
         </form>
 
         <div className="transaction-history">
           <div className="section-row"><div><p className="app-kicker">Activity</p><h2>Payments &amp; expenses</h2></div><span>{visibleEntries.length} of {entries.length} entries</span></div>
           <div className="transaction-controls" aria-label="Filter and sort transactions">
-            <label className="transaction-field transaction-search"><span>Search</span><input type="search" value={filters.search} onChange={(event) => setFilters({ ...filters, search: event.target.value })} placeholder="Name, party, invoice…" /></label>
-            <label className="transaction-field"><span>Direction</span><select value={filters.direction} onChange={(event) => setFilters({ ...filters, direction: event.target.value })}><option value="all">All directions</option><option value="inflow">Money in</option><option value="outflow">Money out</option></select></label>
-            <label className="transaction-field"><span>Status</span><select value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}><option value="all">All statuses</option>{availableStatuses.map((status) => <option key={status} value={status}>{status.replaceAll("_", " ")}</option>)}</select></label>
-            <label className="transaction-field"><span>Category</span><select value={filters.category} onChange={(event) => setFilters({ ...filters, category: event.target.value })}><option value="all">All categories</option>{availableCategories.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-            <label className="transaction-field"><span>Sort by</span><select value={sortOrder} onChange={(event) => setSortOrder(event.target.value as SortOrder)}><option value="date-desc">Newest date</option><option value="date-asc">Oldest date</option><option value="amount-desc">Highest amount</option><option value="amount-asc">Lowest amount</option><option value="name-asc">Name A-Z</option></select></label>
-            <button className="button button-secondary transaction-clear" type="button" disabled={!filtersActive} onClick={() => setFilters({ search: "", direction: "all", status: "all", category: "all" })}>Clear filters</button>
+            <Label className="transaction-field transaction-search"><span>Search</span><Input type="search" value={filters.search} onChange={(event) => setFilters({ ...filters, search: event.target.value })} placeholder="Name, party, invoice…" /></Label>
+            <div className="transaction-field"><Label className="mb-[0.45rem] block text-[0.58rem]" htmlFor="transaction-filter-direction">Direction</Label><Select value={filters.direction} onValueChange={(value) => setFilters({ ...filters, direction: value })}><SelectTrigger id="transaction-filter-direction"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All directions</SelectItem><SelectItem value="inflow">Money in</SelectItem><SelectItem value="outflow">Money out</SelectItem></SelectContent></Select></div>
+            <div className="transaction-field"><Label className="mb-[0.45rem] block text-[0.58rem]" htmlFor="transaction-filter-status">Status</Label><Select value={filters.status} onValueChange={(value) => setFilters({ ...filters, status: value })}><SelectTrigger id="transaction-filter-status"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All statuses</SelectItem>{availableStatuses.map((status) => <SelectItem key={status} value={status}>{status.replaceAll("_", " ")}</SelectItem>)}</SelectContent></Select></div>
+            <div className="transaction-field"><Label className="mb-[0.45rem] block text-[0.58rem]" htmlFor="transaction-filter-category">Category</Label><Select value={filters.category} onValueChange={(value) => setFilters({ ...filters, category: value })}><SelectTrigger id="transaction-filter-category"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All categories</SelectItem>{availableCategories.map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select></div>
+            <div className="transaction-field"><Label className="mb-[0.45rem] block text-[0.58rem]" htmlFor="transaction-sort-order">Sort by</Label><Select value={sortOrder} onValueChange={(value) => setSortOrder(value as SortOrder)}><SelectTrigger id="transaction-sort-order"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="date-desc">Newest date</SelectItem><SelectItem value="date-asc">Oldest date</SelectItem><SelectItem value="amount-desc">Highest amount</SelectItem><SelectItem value="amount-asc">Lowest amount</SelectItem><SelectItem value="name-asc">Name A-Z</SelectItem></SelectContent></Select></div>
+            <Button className="button button-secondary transaction-clear" variant="secondary" type="button" disabled={!filtersActive} onClick={() => setFilters({ search: "", direction: "all", status: "all", category: "all" })}>Clear filters</Button>
           </div>
-          <div aria-live="polite">{visibleEntries.length === 0 ? <p className="transaction-empty">{entries.length ? "No transactions match these filters." : "No transactions yet."}</p> : visibleEntries.map((entry) => <div className={`transaction-row ${entry.direction}`} key={entry.id}><div><strong>{entry.name}</strong><small>{entry.scheduledDate} · {entry.status} · {transactionLabel(entry)}</small></div><b>{entry.direction === "inflow" ? "+" : "−"}{money(effectiveAmount(entry), currency)}</b><div className="transaction-actions">{entry.status !== "paid" && <><button type="button" onClick={() => markPaid(entry)}>Mark paid</button><button type="button" onClick={() => patchEntry(entry.id, { included: !entry.included })}>{entry.included ? "Exclude" : "Include"}</button></>}<button type="button" onClick={() => edit(entry)}>Edit</button><button className="transaction-delete" type="button" aria-label={`Delete ${entry.name}`} onClick={() => remove(entry)}>×</button></div></div>)}</div>
+          <div aria-live="polite">{visibleEntries.length === 0 ? <p className="transaction-empty">{entries.length ? "No transactions match these filters." : "No transactions yet."}</p> : visibleEntries.map((entry) => <div className={`transaction-row ${entry.direction}`} key={entry.id}><div><strong>{entry.name}</strong><small>{entry.scheduledDate} · <Badge variant={entry.status === "paid" ? "success" : "outline"}>{entry.status}</Badge> · {transactionLabel(entry)}</small></div><b>{entry.direction === "inflow" ? "+" : "−"}{money(effectiveAmount(entry), currency)}</b><div className="transaction-actions">{entry.status !== "paid" && <><Button className="min-h-0" variant="ghost" size="sm" type="button" onClick={() => openMarkPaid(entry)}>Mark paid</Button><Button className="min-h-0" variant="ghost" size="sm" type="button" onClick={() => patchEntry(entry.id, { included: !entry.included })}>{entry.included ? "Exclude" : "Include"}</Button></>}<Button className="min-h-0" variant="ghost" size="sm" type="button" onClick={() => edit(entry)}>Edit</Button><AlertDialog><AlertDialogTrigger asChild><Button className="transaction-delete min-h-0" variant="ghost" size="icon" type="button" aria-label={`Delete ${entry.name}`}>×</Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete transaction?</AlertDialogTitle><AlertDialogDescription>This permanently removes {entry.name} from your transaction history.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel asChild><Button variant="secondary" type="button">Cancel</Button></AlertDialogCancel><AlertDialogAction asChild><Button variant="destructive" type="button" onClick={() => remove(entry)}>Delete transaction</Button></AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></div></div>)}</div>
         </div>
       </div>
-    </section>
+    </Card>
+    <Dialog open={Boolean(markPaidEntry)} onOpenChange={(open) => { if (!open && !markPaidBusy) setMarkPaidEntry(null); }}>
+      <DialogContent>
+        <form onSubmit={markPaid} className="grid gap-4">
+          <DialogHeader><DialogTitle>Mark transaction paid</DialogTitle><DialogDescription>Record the actual amount and payment date for {markPaidEntry?.name}.</DialogDescription></DialogHeader>
+          <Label htmlFor="mark-paid-amount">Actual amount</Label>
+          <Input id="mark-paid-amount" inputMode="decimal" required value={markPaidAmount} onChange={(event) => { setMarkPaidAmount(event.target.value); setMarkPaidError(""); }} disabled={markPaidBusy} />
+          <Label htmlFor="mark-paid-date">Actual date</Label>
+          <Input id="mark-paid-date" type="date" required value={markPaidDate} onChange={(event) => { setMarkPaidDate(event.target.value); setMarkPaidError(""); }} disabled={markPaidBusy} />
+          {markPaidError && <p className="text-sm text-destructive" role="alert">{markPaidError}</p>}
+          <DialogFooter><Button variant="secondary" type="button" onClick={() => setMarkPaidEntry(null)} disabled={markPaidBusy}>Cancel</Button><Button type="submit" disabled={markPaidBusy}>Mark paid</Button></DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   </main></AppShell>;
 }

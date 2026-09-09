@@ -2,6 +2,28 @@ import { FormEvent, useEffect, useState } from "react";
 
 import { api } from "../api";
 import { AppShell } from "../components/AppShell";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "../components/ui/alert-dialog";
+import { Button } from "../components/ui/button";
+import { Card } from "../components/ui/card";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
 import { amountMinor } from "../utils";
 
 type Settings = {
@@ -247,44 +269,59 @@ export function SettingsPage() {
         <section className="settings-grid" aria-busy={loading}>
           <form className="settings-card settings-form" onSubmit={saveSettings}>
             <div><p className="app-kicker">Planning defaults</p><h2>Workspace</h2><p>These values shape how your cash plan is displayed and protected.</p></div>
-            <label className="transaction-field"><span>Workspace name</span><input value={form.name} onChange={(event) => update("name", event.target.value)} maxLength={80} autoComplete="organization" required disabled={loading} /></label>
+            <Label className="transaction-field"><span>Workspace name</span><Input value={form.name} onChange={(event) => update("name", event.target.value)} maxLength={80} autoComplete="organization" required disabled={loading} /></Label>
             <div className="transaction-fields">
-              <label className="transaction-field"><span>Currency</span><select value={form.currency} onChange={(event) => update("currency", event.target.value)} disabled={loading || settings?.currencyLocked}><option value="USD">USD - US dollar</option><option value="EUR">EUR - Euro</option><option value="GBP">GBP - British pound</option></select><small>{settings?.currencyLocked ? "Locked because this workspace has financial records." : "Currency locks after your first financial record."}</small></label>
-              <label className="transaction-field"><span>Timezone</span><select value={form.timezone} onChange={(event) => update("timezone", event.target.value)} disabled={loading}>{TIMEZONES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+              <div className="transaction-field"><Label className="mb-[0.45rem] block text-[0.58rem]" htmlFor="settings-currency">Currency</Label><Select value={form.currency} onValueChange={(value) => update("currency", value)} disabled={loading || settings?.currencyLocked}><SelectTrigger id="settings-currency"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="USD">USD - US dollar</SelectItem><SelectItem value="EUR">EUR - Euro</SelectItem><SelectItem value="GBP">GBP - British pound</SelectItem></SelectContent></Select><small>{settings?.currencyLocked ? "Locked because this workspace has financial records." : "Currency locks after your first financial record."}</small></div>
+              <div className="transaction-field"><Label className="mb-[0.45rem] block text-[0.58rem]" htmlFor="settings-timezone">Timezone</Label><Select value={form.timezone} onValueChange={(value) => update("timezone", value)} disabled={loading}><SelectTrigger id="settings-timezone"><SelectValue /></SelectTrigger><SelectContent>{TIMEZONES.map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select></div>
             </div>
             <div className="transaction-fields">
-              <label className="transaction-field"><span>Minimum cash buffer</span><input value={form.minimumBuffer} onChange={(event) => update("minimumBuffer", event.target.value)} inputMode="decimal" required placeholder="0.00" disabled={loading} /></label>
-              <label className="transaction-field"><span>Tax already reserved</span><input value={form.taxReserve} onChange={(event) => update("taxReserve", event.target.value)} inputMode="decimal" required placeholder="0.00" disabled={loading} /></label>
+              <Label className="transaction-field"><span>Minimum cash buffer</span><Input value={form.minimumBuffer} onChange={(event) => update("minimumBuffer", event.target.value)} inputMode="decimal" required placeholder="0.00" disabled={loading} /></Label>
+              <Label className="transaction-field"><span>Tax already reserved</span><Input value={form.taxReserve} onChange={(event) => update("taxReserve", event.target.value)} inputMode="decimal" required placeholder="0.00" disabled={loading} /></Label>
             </div>
             <div className="transaction-fields">
-              <label className="transaction-field"><span>Tax reserve method</span><select value={form.taxReserveMode} onChange={(event) => update("taxReserveMode", event.target.value as SettingsForm["taxReserveMode"])} disabled={loading}><option value="fixed">Fixed amount only</option><option value="percentage">Reserve future income percentage</option></select></label>
-              <label className="transaction-field"><span>Future income tax rate (%)</span><input value={form.taxRate} onChange={(event) => update("taxRate", event.target.value)} inputMode="decimal" required placeholder="0" disabled={loading} /></label>
+              <div className="transaction-field"><Label className="mb-[0.45rem] block text-[0.58rem]" htmlFor="settings-tax-reserve-method">Tax reserve method</Label><Select value={form.taxReserveMode} onValueChange={(value) => update("taxReserveMode", value as SettingsForm["taxReserveMode"])} disabled={loading}><SelectTrigger id="settings-tax-reserve-method"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="fixed">Fixed amount only</SelectItem><SelectItem value="percentage">Reserve future income percentage</SelectItem></SelectContent></Select></div>
+              <Label className="transaction-field"><span>Future income tax rate (%)</span><Input value={form.taxRate} onChange={(event) => update("taxRate", event.target.value)} inputMode="decimal" required placeholder="0" disabled={loading} /></Label>
             </div>
-            <label className="transaction-field"><span>Typical customer payment delay (days)</span><input value={form.paymentDelayDays} onChange={(event) => update("paymentDelayDays", event.target.value)} type="number" min={0} max={365} required disabled={loading} /></label>
-            <button className="button button-primary" type="submit" disabled={loading || saving}>{saving ? "Saving..." : "Save workspace settings"}</button>
+            <Label className="transaction-field"><span>Typical customer payment delay (days)</span><Input value={form.paymentDelayDays} onChange={(event) => update("paymentDelayDays", event.target.value)} type="number" min={0} max={365} required disabled={loading} /></Label>
+            <Button className="button button-primary" type="submit" disabled={loading || saving}>{saving ? "Saving..." : "Save workspace settings"}</Button>
             <p className={`transaction-message${settingsError ? " error" : ""}`} role="status" aria-live="polite">{settingsMessage}</p>
           </form>
           <div className="settings-stack">
-            <section className="settings-card"><p className="app-kicker">Account</p><h2>Owner details</h2><div className="settings-fact"><span>Email</span><strong>{settings?.email || "Loading..."}</strong></div><p className="settings-note">Your email identifies the workspace owner and is not currently editable.</p></section>
-            <section className="settings-card">
+            <Card className="settings-card"><p className="app-kicker">Account</p><h2>Owner details</h2><div className="settings-fact"><span>Email</span><strong>{settings?.email || "Loading..."}</strong></div><p className="settings-note">Your email identifies the workspace owner and is not currently editable.</p></Card>
+            <Card className="settings-card">
               <p className="app-kicker">Subscription</p><h2>Billing</h2>
               <div className="settings-fact"><span>Status</span><strong>{billing ? statusLabel[0].toUpperCase() + statusLabel.slice(1) : "Loading..."}</strong></div>
               <p className="settings-note">{billingNote}</p>
               <div className="billing-actions">
-                {billing && status === "trialing" ? <><button className="button button-primary" type="button" disabled={billingAction !== null} onClick={() => openBilling("/api/billing/checkout", { interval: "monthly" })}>Choose monthly</button><button className="button button-secondary" type="button" disabled={billingAction !== null} onClick={() => openBilling("/api/billing/checkout", { interval: "annual" })}>Choose annual</button></> : null}
-                {billing && status !== "trialing" ? <button className="button button-primary" type="button" disabled={billingAction !== null} onClick={() => openBilling("/api/billing/portal")}>Manage billing</button> : null}
+                {billing && status === "trialing" ? <><Button className="button button-primary" type="button" disabled={billingAction !== null} onClick={() => openBilling("/api/billing/checkout", { interval: "monthly" })}>Choose monthly</Button><Button className="button button-secondary" variant="secondary" type="button" disabled={billingAction !== null} onClick={() => openBilling("/api/billing/checkout", { interval: "annual" })}>Choose annual</Button></> : null}
+                {billing && status !== "trialing" ? <Button className="button button-primary" type="button" disabled={billingAction !== null} onClick={() => openBilling("/api/billing/portal")}>Manage billing</Button> : null}
               </div>
               <p className={`transaction-message${billingError ? " error" : ""}`} role="status" aria-live="polite">{billingMessage}</p>
-            </section>
-            <section className="settings-card"><p className="app-kicker">Your data</p><h2>Export</h2><p className="settings-note">Download a complete JSON archive or a spreadsheet-ready transaction CSV.</p><div className="billing-actions"><a className="button button-secondary" href="/api/export?format=json">Download JSON</a><a className="button button-secondary" href="/api/export?format=csv">Download CSV</a></div></section>
-            <section className="settings-card danger-card">
+            </Card>
+            <Card className="settings-card"><p className="app-kicker">Your data</p><h2>Export</h2><p className="settings-note">Download a complete JSON archive or a spreadsheet-ready transaction CSV.</p><div className="billing-actions"><Button asChild className="button button-secondary" variant="secondary"><a href="/api/export?format=json">Download JSON</a></Button><Button asChild className="button button-secondary" variant="secondary"><a href="/api/export?format=csv">Download CSV</a></Button></div></Card>
+            <Card className="settings-card danger-card">
               <p className="app-kicker">Danger zone</p><h2>Reset or delete</h2>
               <p className="settings-note">Resetting removes all financial records and review history but keeps your account and parties. Account deletion removes the entire workspace and cannot proceed while a paid subscription is active.</p>
-              <label className="transaction-field"><span>Current password</span><input value={password} onChange={(event) => setPassword(event.target.value)} type="password" autoComplete="current-password" disabled={destructiveAction !== null} /></label>
-              <div className="billing-actions"><button className="button button-secondary" type="button" disabled={!password || destructiveAction !== null} onClick={() => setPendingDestructiveAction("reset")}>Reset financial plan</button><button className="button danger-button" type="button" disabled={!password || destructiveAction !== null} onClick={() => setPendingDestructiveAction("delete")}>Delete account</button></div>
-              {pendingDestructiveAction ? <div className="settings-card" role="alertdialog" aria-modal="true" aria-labelledby="destructive-title" aria-describedby="destructive-description"><h3 id="destructive-title">Confirm {pendingDestructiveAction === "delete" ? "account deletion" : "financial plan reset"}</h3><p id="destructive-description">{pendingDestructiveAction === "delete" ? "Permanently delete your Finvayo account and all workspace data?" : "Delete all financial records and review history?"} This cannot be undone.</p><div className="billing-actions"><button className="button danger-button" type="button" disabled={destructiveAction !== null} onClick={confirmDestructiveAction}>{destructiveAction ? "Working..." : "Confirm"}</button><button className="button button-secondary" type="button" disabled={destructiveAction !== null} onClick={() => setPendingDestructiveAction(null)}>Cancel</button></div></div> : null}
-              <p className={`transaction-message${dataMessage ? " error" : ""}`} role="status" aria-live="polite">{dataMessage}</p>
-            </section>
+              <Label className="transaction-field"><span>Current password</span><Input value={password} onChange={(event) => setPassword(event.target.value)} type="password" autoComplete="current-password" disabled={destructiveAction !== null} /></Label>
+              <AlertDialog open={pendingDestructiveAction !== null} onOpenChange={(open) => { if (!open && destructiveAction === null) setPendingDestructiveAction(null); }}>
+                <div className="billing-actions">
+                  <AlertDialogTrigger asChild><Button className="button button-secondary" variant="secondary" type="button" disabled={!password || destructiveAction !== null} onClick={() => setPendingDestructiveAction("reset")}>Reset financial plan</Button></AlertDialogTrigger>
+                  <AlertDialogTrigger asChild><Button className="button danger-button" variant="destructive" type="button" disabled={!password || destructiveAction !== null} onClick={() => setPendingDestructiveAction("delete")}>Delete account</Button></AlertDialogTrigger>
+                </div>
+                <AlertDialogContent className="settings-card">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Confirm {pendingDestructiveAction === "delete" ? "account deletion" : "financial plan reset"}</AlertDialogTitle>
+                    <AlertDialogDescription>{pendingDestructiveAction === "delete" ? "Permanently delete your Finvayo account and all workspace data?" : "Delete all financial records and review history?"} This cannot be undone.</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <p className={`transaction-message${dataMessage ? " error" : ""}`} role="status" aria-live="polite">{dataMessage}</p>
+                  <AlertDialogFooter className="billing-actions">
+                    <AlertDialogAction asChild><Button className="button danger-button" variant="destructive" type="button" disabled={destructiveAction !== null} onClick={(event) => { event.preventDefault(); void confirmDestructiveAction(); }}>{destructiveAction ? "Working..." : "Confirm"}</Button></AlertDialogAction>
+                    <AlertDialogCancel asChild><Button className="button button-secondary" variant="secondary" type="button" disabled={destructiveAction !== null}>Cancel</Button></AlertDialogCancel>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+              {!pendingDestructiveAction ? <p className={`transaction-message${dataMessage ? " error" : ""}`} role="status" aria-live="polite">{dataMessage}</p> : null}
+            </Card>
           </div>
         </section>
       </main>

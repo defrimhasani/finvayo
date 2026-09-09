@@ -1,4 +1,6 @@
 import { Brand } from "../components/Brand";
+import { Button } from "../components/ui/button";
+import { Card } from "../components/ui/card";
 
 export function LandingPage() {
   return (
@@ -10,7 +12,7 @@ export function LandingPage() {
           <a href="#how-it-works">How it works</a>
           <a href="#principles">Why Finvayo</a>
           <a href="/login">Sign in</a>
-          <a className="nav-cta" href="/signup">Start free</a>
+          <Button asChild className="nav-cta"><a href="/signup">Start free</a></Button>
         </nav>
       </header>
 
@@ -21,13 +23,13 @@ export function LandingPage() {
             <h1>Know what your business can <em>safely spend.</em></h1>
             <p className="lede">See when cash gets tight, protect money for tax and bills, and know which payment needs your attention. No accounting overhaul required.</p>
             <div className="hero-actions">
-              <a className="button button-primary" href="/signup">Start free for 14 days <span aria-hidden="true">{"\u2197"}</span></a>
+              <Button asChild className="button button-primary"><a href="/signup">Start free for 14 days <span aria-hidden="true">{"\u2197"}</span></a></Button>
               <a className="text-link" href="#how-it-works">See how it works <span aria-hidden="true">{"\u2193"}</span></a>
             </div>
             <p className="quiet-note">Built for freelancers, consultants, and small studios.</p>
           </div>
 
-          <div className="forecast-card" role="img" aria-label="Example cash outlook: $4,280 safe to spend, with projected cash remaining above the protected buffer for 90 days.">
+          <Card className="forecast-card" role="img" aria-label="Example cash outlook: $4,280 safe to spend, with projected cash remaining above the protected buffer for 90 days.">
             <div className="card-topline"><span>90-day outlook</span><span className="status"><i /> On track</span></div>
             <p className="metric-label">Safe to spend now</p>
             <p className="metric">$4,280</p>
@@ -47,7 +49,7 @@ export function LandingPage() {
               <span className="note-index">01</span>
               <p>Your lowest projected balance is <strong>$5,940 on 18 Oct</strong>, leaving $1,120 above your protected cash.</p>
             </div>
-          </div>
+          </Card>
         </section>
 
         <section className="decision-strip" aria-label="Questions Finvayo answers">
@@ -83,7 +85,7 @@ export function LandingPage() {
         <section className="closing">
           <p className="eyebrow">Start without a payment method</p>
           <h2>Make the next decision with the next 90 days in view.</h2>
-          <a className="button button-light" href="/signup">Start free for 14 days <span aria-hidden="true">{"\u2197"}</span></a>
+          <Button asChild className="button button-light" variant="light"><a href="/signup">Start free for 14 days <span aria-hidden="true">{"\u2197"}</span></a></Button>
         </section>
       </main>
 

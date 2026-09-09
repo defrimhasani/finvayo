@@ -1,0 +1,58 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--ui-muted);
+  --color-muted-foreground: var(--ui-muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: var(--radius);
+  --radius-md: var(--radius);
+  --radius-lg: var(--radius);
+  --font-sans: var(--sans);
+  --font-serif: var(--serif);
+  --font-mono: var(--mono);
+}
+
+:root {
+  --background: #f2efe8;
+  --foreground: #171815;
+  --card: #fffdf8;
+  --card-foreground: #171815;
+  --popover: #fffdf8;
+  --popover-foreground: #171815;
+  --primary: #171815;
+  --primary-foreground: #ffffff;
+  --secondary: #dce967;
+  --secondary-foreground: #171815;
+  --ui-muted: #e7e4d9;
+  --ui-muted-foreground: #66675f;
+  --accent: #ff6b35;
+  --accent-foreground: #171815;
+  --destructive: #8c3e34;
+  --border: #c9c6bb;
+  --input: #aaa79d;
+  --ring: #185cff;
+  --radius: 2px;
+}
+
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+}

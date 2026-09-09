@@ -1,5 +1,10 @@
 import { AuthLayout } from "../components/AuthLayout";
 import { FormAlert } from "../components/FormAlert";
+import { Button } from "../components/ui/button";
+import { Card } from "../components/ui/card";
+import { Checkbox } from "../components/ui/checkbox";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
 import { queryValue } from "../utils/page";
 
 const errorMessages: Record<string, string> = {
@@ -25,25 +30,25 @@ export function SignupPage() {
       proofLabel="Trial details"
       proofItems={["Full product access", "Cancel anytime", "Your data stays private"]}
     >
-      <section className="login-panel" aria-labelledby="signup-title">
+      <Card className="login-panel" aria-labelledby="signup-title">
         <p className="panel-count">01 / Create account</p>
         <h2 id="signup-title">Start your workspace.</h2>
         <p className="panel-copy">Your trial begins when the account is created.</p>
         <FormAlert message={error ? errorMessages[error] : undefined} />
         <form className="login-form" action="/auth/signup" method="post">
-          <label htmlFor="email">Work email</label>
-          <input id="email" name="email" type="email" autoComplete="email" spellCheck={false} placeholder={`you@business.com${"\u2026"}`} required />
-          <label htmlFor="password">Create password</label>
-          <input id="password" name="password" type="password" autoComplete="new-password" minLength={12} maxLength={128} aria-describedby="password-help" required />
+          <Label htmlFor="email">Work email</Label>
+          <Input id="email" name="email" type="email" autoComplete="email" spellCheck={false} placeholder={`you@business.com${"\u2026"}`} required />
+          <Label htmlFor="password">Create password</Label>
+          <Input id="password" name="password" type="password" autoComplete="new-password" minLength={12} maxLength={128} aria-describedby="password-help" required />
           <small id="password-help">Use at least 12 characters.</small>
           <label className="terms-check">
-            <input name="terms" type="checkbox" required />
+            <Checkbox name="terms" required />
             <span>I agree to the Terms and Privacy Policy.</span>
           </label>
-          <button className="button button-primary" type="submit">Create account <span aria-hidden="true">{"\u2192"}</span></button>
+          <Button className="button button-primary" type="submit">Create account <span aria-hidden="true">{"\u2192"}</span></Button>
         </form>
         <p className="login-terms">No payment method required. Your 14-day trial includes all current features.</p>
-      </section>
+      </Card>
     </AuthLayout>
   );
 }

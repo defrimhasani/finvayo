@@ -1,5 +1,6 @@
 import { StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
+import "./styles/globals.css";
 import "../../public/styles.css";
 import "../../public/product.css";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";

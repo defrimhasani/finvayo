@@ -1,3 +1,5 @@
+import { Alert } from "./ui/alert";
+
 interface FormAlertProps {
   message?: string;
   success?: boolean;
@@ -6,8 +8,8 @@ interface FormAlertProps {
 
 export function FormAlert({ message, success = false, role = "alert" }: FormAlertProps) {
   return (
-    <div className={`form-alert${success ? " success" : ""}`} role={role} hidden={!message}>
+    <Alert className={`form-alert${success ? " success" : ""}`} variant={success ? "success" : "destructive"} role={role} hidden={!message}>
       {message}
-    </div>
+    </Alert>
   );
 }

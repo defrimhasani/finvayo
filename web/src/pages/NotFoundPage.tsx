@@ -1,4 +1,5 @@
 import { Brand } from "../components/Brand";
+import { Button } from "../components/ui/button";
 
 export function NotFoundPage() {
   return (
@@ -7,7 +8,7 @@ export function NotFoundPage() {
       <main id="main" className="process">
         <p className="eyebrow">404 / Not found</p>
         <h1>This page is not part of the outlook.</h1>
-        <a className="button button-primary" href="/">Return home</a>
+        <Button asChild className="button button-primary"><a href="/">Return home</a></Button>
       </main>
     </>
   );

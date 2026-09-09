@@ -1,5 +1,9 @@
 import { AuthLayout } from "../components/AuthLayout";
 import { FormAlert } from "../components/FormAlert";
+import { Button } from "../components/ui/button";
+import { Card } from "../components/ui/card";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
 import { queryValue } from "../utils/page";
 
 const errorMessages: Record<string, string> = {
@@ -29,27 +33,27 @@ export function LoginPage() {
       proofLabel="Finvayo principles"
       proofItems={["90-day outlook", "Transparent estimates", "No bank connection required"]}
     >
-      <section className="login-panel" aria-labelledby="login-title">
+      <Card className="login-panel" aria-labelledby="login-title">
         <p className="panel-count">01 / Sign in</p>
         <h2 id="login-title">Welcome back.</h2>
         <p className="panel-copy">Sign in to review your 90-day cash outlook.</p>
         <FormAlert message={message} success={resetSucceeded} />
         <form className="login-form" action="/auth/login" method="post">
-          <label htmlFor="email">Work email</label>
-          <input id="email" name="email" type="email" autoComplete="email" spellCheck={false} placeholder={`you@business.com${"\u2026"}`} required />
-          <label htmlFor="password">Password</label>
-          <input id="password" name="password" type="password" autoComplete="current-password" required />
+          <Label htmlFor="email">Work email</Label>
+          <Input id="email" name="email" type="email" autoComplete="email" spellCheck={false} placeholder={`you@business.com${"\u2026"}`} required />
+          <Label htmlFor="password">Password</Label>
+          <Input id="password" name="password" type="password" autoComplete="current-password" required />
           <a className="forgot-link" href="/forgot-password">Forgot your password?</a>
-          <button className="button button-primary" type="submit">
+          <Button className="button button-primary" type="submit">
             Sign in <span aria-hidden="true">{"\u2192"}</span>
-          </button>
+          </Button>
         </form>
         <p className="login-terms">New to Finvayo? <a href="/signup">Create an account and start your 14-day trial.</a></p>
         <div className="preview-link">
           <span>Exploring first?</span>
           <a href="/app/preview">View the product shell <span aria-hidden="true">{"\u2192"}</span></a>
         </div>
-      </section>
+      </Card>
     </AuthLayout>
   );
 }
