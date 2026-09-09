@@ -3,13 +3,17 @@ import { api } from "../api";
 import {
   fail,
   type Financials,
-  PageHeader,
   today,
   validPositiveAmount,
 } from "../appData";
 import { AppShell } from "../components/AppShell";
 import { Button } from "../components/ui/button";
-import { Card } from "../components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+} from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { money } from "../utils";
@@ -79,55 +83,81 @@ export default function ScenariosPage() {
   }
   return (
     <AppShell activePage="scenarios">
-      <main className="app-main" id="app-main">
-        <PageHeader kicker="Decision support" title="Scenarios" />
-        <Card className="scenario-card scenario-page-card">
-          <p className="app-kicker">Before you commit</p>
-          <h2>Check a purchase.</h2>
-          <p>
-            See how a new expense changes your protected cash before adding it
-            to the plan.
-          </p>
-          <form onSubmit={submit}>
-            <div className="scenario-fields">
-              <Label className="transaction-field">
-                <span>Amount</span>
-                <Input
-                  inputMode="decimal"
-                  required
-                  value={scenario.amount}
-                  onChange={(e) =>
-                    setScenario({ ...scenario, amount: e.target.value })
-                  }
-                />
-              </Label>
-              <Label className="transaction-field">
-                <span>Payment date</span>
-                <Input
-                  type="date"
-                  required
-                  value={scenario.date}
-                  onChange={(e) =>
-                    setScenario({ ...scenario, date: e.target.value })
-                  }
-                />
-              </Label>
-            </div>
-            <Button className="button button-primary" type="submit">
-              Run scenario
-            </Button>
-            {result && (
-              <Button
-                className="button button-secondary"
-                variant="secondary"
-                type="button"
-                onClick={addToPlan}
-              >
-                Add to plan
+      <main
+        className="min-h-screen w-full px-4 pb-28 pt-6 min-[761px]:px-6 min-[761px]:pb-20 min-[761px]:pt-8 min-[1200px]:px-8"
+        id="app-main"
+      >
+        <header className="flex min-h-28 items-center border-b border-border min-[761px]:min-h-[150px]">
+          <div>
+            <p className="mb-2 font-mono text-[0.7rem] uppercase leading-[1.35] tracking-[0.08em] text-[#3f665e]">
+              Decision support
+            </p>
+            <h1 className="text-[clamp(2.5rem,4.2vw,4.5rem)] font-semibold leading-none tracking-[-0.06em]">
+              Scenarios
+            </h1>
+          </div>
+        </header>
+        <Card className="mt-5 w-full max-w-[760px] bg-muted">
+          <CardHeader>
+            <p className="font-mono text-[0.7rem] uppercase leading-[1.35] tracking-[0.08em] text-[#3f665e]">
+              Before you commit
+            </p>
+            <h2 className="text-xl font-semibold tracking-[-0.04em]">
+              Check a purchase.
+            </h2>
+            <CardDescription>
+              See how a new expense changes your protected cash before adding
+              it to the plan.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form className="grid gap-4" onSubmit={submit}>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Label className="grid gap-2">
+                  <span>Amount</span>
+                  <Input
+                    inputMode="decimal"
+                    required
+                    value={scenario.amount}
+                    onChange={(e) =>
+                      setScenario({ ...scenario, amount: e.target.value })
+                    }
+                  />
+                </Label>
+                <Label className="grid gap-2">
+                  <span>Payment date</span>
+                  <Input
+                    type="date"
+                    required
+                    value={scenario.date}
+                    onChange={(e) =>
+                      setScenario({ ...scenario, date: e.target.value })
+                    }
+                  />
+                </Label>
+              </div>
+              <Button className="w-full" type="submit">
+                Run scenario
               </Button>
-            )}
-            <small>{message}</small>
-          </form>
+              {result && (
+                <Button
+                  className="w-full"
+                  variant="secondary"
+                  type="button"
+                  onClick={addToPlan}
+                >
+                  Add to plan
+                </Button>
+              )}
+              <p
+                className="text-center text-xs leading-5 text-muted-foreground"
+                role="status"
+                aria-live="polite"
+              >
+                {message}
+              </p>
+            </form>
+          </CardContent>
         </Card>
       </main>
     </AppShell>

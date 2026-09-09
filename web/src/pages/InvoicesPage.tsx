@@ -101,6 +101,15 @@ const SORTS: InvoiceSort[] = [
   "customer-asc",
   "status-asc",
 ];
+const SORT_LABELS: Record<InvoiceSort, string> = {
+  "created-desc": "Newest issued",
+  "due-asc": "Due soonest",
+  "due-desc": "Due latest",
+  "amount-desc": "Highest amount",
+  "amount-asc": "Lowest amount",
+  "customer-asc": "Customer A-Z",
+  "status-asc": "Status",
+};
 const PAGE_SIZE = 10;
 let itemSequence = 0;
 
@@ -161,8 +170,6 @@ function errorMessage(error: unknown, fallback: string) {
 
 export function InvoicesPage() {
   const query = useRef(initialQuery());
-  const formRef = useRef<HTMLFormElement>(null);
-  const customerRef = useRef<HTMLButtonElement>(null);
   const [invoices, setInvoices] = useState<InvoiceSummary[]>([]);
   const [parties, setParties] = useState<Party[]>([]);
   const [currency, setCurrency] = useState("USD");
@@ -176,6 +183,7 @@ export function InvoicesPage() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [form, setForm] = useState<InvoiceForm>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -300,18 +308,14 @@ export function InvoicesPage() {
     setMessageError(false);
   }
 
-  function scrollToForm() {
-    const reducedMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
-    formRef.current?.scrollIntoView({
-      behavior: reducedMotion ? "auto" : "smooth",
-      block: "center",
-    });
-    window.setTimeout(
-      () => customerRef.current?.focus(),
-      reducedMotion ? 0 : 300,
-    );
+  function closeEditor() {
+    setEditorOpen(false);
+    resetForm();
+  }
+
+  function newInvoice() {
+    resetForm();
+    setEditorOpen(true);
   }
 
   function updateItem(
@@ -365,10 +369,8 @@ export function InvoicesPage() {
           body: JSON.stringify(payload),
         },
       );
-      setMessage("Invoice draft saved.");
-      setEditingId(null);
-      setForm(emptyForm());
       await refresh();
+      closeEditor();
       selectInvoice(result.id);
       const detail = await api<{ invoice: Invoice }>(
         `/api/invoices/${result.id}`,
@@ -394,7 +396,8 @@ export function InvoicesPage() {
       items: invoice.items.map(newItem),
     });
     setMessage("");
-    scrollToForm();
+    setMessageError(false);
+    setEditorOpen(true);
   }
 
   async function runDetailAction(kind: "send" | "paid" | "delete", id: string) {
@@ -479,40 +482,38 @@ export function InvoicesPage() {
 
   return (
     <AppShell activePage="invoices">
-      <main className="app-main settings-main" id="app-main">
-        <header className="workspace-header">
+      <main
+        className="min-h-screen w-full px-4 pb-24 pt-6 min-[761px]:px-6 min-[761px]:pb-20 min-[1200px]:px-8"
+        id="app-main"
+      >
+        <header className="flex min-h-[150px] items-center justify-between gap-6 border-b border-border max-[520px]:min-h-[180px] max-[520px]:flex-col max-[520px]:items-start max-[520px]:justify-center">
           <div>
-            <p className="app-kicker">Get paid</p>
-            <h1>Invoices</h1>
+            <p className="mb-2 font-mono text-[0.7rem] uppercase leading-[1.35] tracking-[0.08em] text-[#3f665e]">Get paid</p>
+            <h1 className="text-[clamp(2.5rem,4.2vw,4.5rem)] font-semibold tracking-[-0.06em]">Invoices</h1>
           </div>
           <Button
-            className="button button-primary"
             type="button"
-            onClick={() => {
-              resetForm();
-              scrollToForm();
-            }}
+            onClick={newInvoice}
           >
             New invoice
           </Button>
         </header>
-        <section className="invoice-workspace" aria-busy={loading}>
-          <div className="invoice-primary">
-            <Card className="settings-card invoice-list-card">
-              <div className="section-row">
+        <section className="grid items-start gap-4 pt-5" aria-busy={loading}>
+          <div className="grid min-w-0 content-start gap-4">
+            <Card className="grid gap-4 p-[clamp(1.5rem,3vw,2.5rem)]">
+              <div className="flex items-end justify-between gap-4">
                 <div>
-                  <p className="app-kicker">Documents</p>
-                  <h2>All Invoices</h2>
+                  <p className="mb-2 font-mono text-[0.7rem] uppercase leading-[1.35] tracking-[0.08em] text-[#3f665e]">Documents</p>
+                  <h2 className="text-[1.4rem] font-semibold tracking-[-0.045em]">All Invoices</h2>
                 </div>
-                <span>
+                <span className="font-mono text-[0.65rem] uppercase text-muted-foreground">
                   {visibleInvoices.length} of {invoices.length}
                 </span>
               </div>
-              <div className="invoice-filters" aria-label="Filter invoices">
+              <div className="flex flex-wrap items-center gap-2" aria-label="Filter invoices">
                 {FILTERS.map((value) => (
                   <Button
                     key={value}
-                    className={filter === value ? "active" : ""}
                     variant="filter"
                     size="sm"
                     type="button"
@@ -525,11 +526,11 @@ export function InvoicesPage() {
                 ))}
               </div>
               <div
-                className="invoice-list-controls"
+                className="grid gap-3 border border-border bg-white/55 p-4 sm:grid-cols-[minmax(0,1fr)_minmax(10rem,0.65fr)_auto] sm:items-end"
                 aria-label="Search and sort invoices"
               >
-                <Label className="transaction-field">
-                  <span>Search</span>
+                <Label className="block">
+                  <span className="mb-[0.45rem] block">Search</span>
                   <Input
                     type="search"
                     value={search}
@@ -537,28 +538,25 @@ export function InvoicesPage() {
                     placeholder="Invoice or customer…"
                   />
                 </Label>
-                <div className="transaction-field">
-                  <Label className="mb-[0.45rem] block text-[0.58rem]" htmlFor="invoice-sort">Sort by</Label>
+                <div>
+                  <Label className="mb-[0.45rem] block" htmlFor="invoice-sort">Sort by</Label>
                   <Select
                     value={sort}
-                    onValueChange={(value) => updateSort(value as InvoiceSort)}
-                  >
-                    <SelectTrigger id="invoice-sort">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="created-desc">Newest issued</SelectItem>
-                      <SelectItem value="due-asc">Due soonest</SelectItem>
-                      <SelectItem value="due-desc">Due latest</SelectItem>
-                      <SelectItem value="amount-desc">Highest amount</SelectItem>
-                      <SelectItem value="amount-asc">Lowest amount</SelectItem>
-                      <SelectItem value="customer-asc">Customer A-Z</SelectItem>
-                      <SelectItem value="status-asc">Status</SelectItem>
+                    onValueChange={(value) => updateSort((value ?? "created-desc") as InvoiceSort)}
+                    >
+                      <SelectTrigger id="invoice-sort">
+                       <SelectValue>{() => SORT_LABELS[sort]}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                       {SORTS.map((value) => (
+                         <SelectItem key={value} value={value}>
+                           {SORT_LABELS[value]}
+                         </SelectItem>
+                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <Button
-                  className="button button-secondary"
                   variant="secondary"
                   type="button"
                   disabled={!invoiceFiltersActive}
@@ -572,19 +570,18 @@ export function InvoicesPage() {
                   paginatedInvoices.map((invoice) => (
                     <button
                       key={invoice.id}
-                      className="invoice-list-row"
+                      className="grid min-h-[78px] w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 border-0 border-t border-border bg-transparent py-4 text-left transition-[background-color,padding] hover:bg-accent/10 hover:px-3 aria-[current=true]:bg-accent/10 aria-[current=true]:px-3 sm:grid-cols-[minmax(0,1fr)_auto_auto]"
                       type="button"
                       aria-current={selectedId === invoice.id}
                       onClick={() => selectInvoice(invoice.id)}
                     >
-                      <span>
-                        <strong>{invoice.invoiceNumber}</strong>
-                        <small>
+                      <span className="min-w-0">
+                        <strong className="block [overflow-wrap:anywhere]">{invoice.invoiceNumber}</strong>
+                        <small className="mt-1 block [overflow-wrap:anywhere] text-xs text-muted-foreground">
                           {invoice.customerName} · Due {invoice.dueDate}
                         </small>
                       </span>
                       <Badge
-                        className={`invoice-status ${invoice.status}`}
                         variant={
                           invoice.status === "paid"
                             ? "success"
@@ -595,11 +592,13 @@ export function InvoicesPage() {
                       >
                         {invoice.status}
                       </Badge>
-                      <b>{money(invoice.totalMinor, currency)}</b>
+                      <b className="col-start-2 row-start-2 whitespace-nowrap text-right font-mono text-xs tabular-nums sm:col-start-3 sm:row-start-1">
+                        {money(invoice.totalMinor, currency)}
+                      </b>
                     </button>
                   ))
                 ) : (
-                  <p className="transaction-empty">
+                  <p className="border-t border-border py-8 text-center text-sm text-muted-foreground">
                     {invoices.length
                       ? "No invoices match these filters."
                       : "No invoices yet."}
@@ -608,14 +607,14 @@ export function InvoicesPage() {
               </div>
               {visibleInvoices.length > PAGE_SIZE ? (
                 <Pagination
-                  className="invoice-pagination"
+                  className="border-t border-border pt-4"
                   aria-label="Invoice pages"
                 >
-                  <PaginationContent>
+                  <PaginationContent className="grid w-full grid-cols-2 gap-3 sm:grid-cols-[auto_1fr_auto] sm:items-center">
                     <PaginationItem>
                       <Button
-                        className="button button-secondary"
-                        variant="secondary"
+                          variant="secondary"
+                          size="sm"
                         type="button"
                         disabled={currentPage === 1}
                         onClick={() => changePage(currentPage - 1)}
@@ -624,14 +623,14 @@ export function InvoicesPage() {
                       </Button>
                     </PaginationItem>
                     <PaginationItem>
-                      <span>
+                      <span className="col-span-2 block text-center font-mono text-xs uppercase text-muted-foreground sm:col-span-1">
                         Page {currentPage} of {pageCount}
                       </span>
                     </PaginationItem>
                     <PaginationItem>
                       <Button
-                        className="button button-secondary"
-                        variant="secondary"
+                          variant="secondary"
+                          size="sm"
                         type="button"
                         disabled={currentPage === pageCount}
                         onClick={() => changePage(currentPage + 1)}
@@ -646,15 +645,14 @@ export function InvoicesPage() {
 
             {selectedId ? (
               <Card
-                className="settings-card invoice-detail"
+                className="p-[clamp(1.5rem,3vw,2.5rem)]"
                 aria-busy={loadingDetail}
               >
                 {selectedInvoice ? (
                   <>
-                    <div className="section-row">
+                    <div className="flex items-start justify-between gap-4">
                       <div>
                         <Badge
-                          className={`app-kicker invoice-status ${selectedInvoice.status}`}
                           variant={
                             selectedInvoice.status === "paid"
                               ? "success"
@@ -665,42 +663,41 @@ export function InvoicesPage() {
                         >
                           {selectedInvoice.status}
                         </Badge>
-                        <h2>Invoice {selectedInvoice.invoiceNumber}</h2>
+                        <h2 className="mt-2 text-[1.4rem] font-semibold tracking-[-0.045em]">Invoice {selectedInvoice.invoiceNumber}</h2>
                       </div>
-                      <strong>
+                      <strong className="whitespace-nowrap font-mono tabular-nums">
                         {money(selectedInvoice.totalMinor, currency)}
                       </strong>
                     </div>
-                    <p className="settings-note">
+                    <p className="mt-3 text-sm leading-6 text-muted-foreground">
                       {selectedInvoice.customerName} · Issued{" "}
                       {selectedInvoice.issueDate} · Due{" "}
                       {selectedInvoice.dueDate}
                     </p>
-                    <div className="invoice-detail-items">
+                    <div className="mt-6">
                       {selectedInvoice.items.map((item, index) => (
                         <div
-                          className="settings-fact"
+                          className="flex justify-between gap-4 border-t border-border py-4 text-sm last:border-b"
                           key={item.id || `${item.description}-${index}`}
                         >
                           <span>
                             {item.description} · {item.quantityMilli / 1000} ×{" "}
                             {money(item.unitPriceMinor, currency)}
                           </span>
-                          <strong>{money(item.amountMinor, currency)}</strong>
+                          <strong className="whitespace-nowrap text-right font-mono tabular-nums">{money(item.amountMinor, currency)}</strong>
                         </div>
                       ))}
                     </div>
-                    <div className="invoice-editor-total">
+                    <div className="flex justify-between border-t-2 border-foreground py-4 font-mono tabular-nums">
                       <span>Total</span>
                       <strong>
                         {money(selectedInvoice.totalMinor, currency)}
                       </strong>
                     </div>
-                    <div className="invoice-form-actions">
+                    <div className="flex flex-wrap items-center gap-2 max-[520px]:grid max-[520px]:grid-cols-1 [&>*]:flex-1">
                       {selectedInvoice.status === "draft" ? (
                         <>
                           <Button
-                            className="button button-secondary"
                             variant="secondary"
                             type="button"
                             disabled={action !== null}
@@ -709,7 +706,6 @@ export function InvoicesPage() {
                             Edit draft
                           </Button>
                           <Button
-                            className="button button-primary"
                             type="button"
                             disabled={action !== null}
                             onClick={() =>
@@ -719,7 +715,6 @@ export function InvoicesPage() {
                             {action === "send" ? "Sending..." : "Send invoice"}
                           </Button>
                           <Button
-                            className="button button-secondary"
                             variant="secondary"
                             type="button"
                             disabled={action !== null}
@@ -737,7 +732,6 @@ export function InvoicesPage() {
                         selectedInvoice.status !== "void" ? (
                         <>
                           <Button
-                            className="button button-secondary"
                             variant="secondary"
                             type="button"
                             disabled={action !== null}
@@ -748,7 +742,6 @@ export function InvoicesPage() {
                             {action === "send" ? "Sending..." : "Send again"}
                           </Button>
                           <Button
-                            className="button button-primary"
                             type="button"
                             disabled={action !== null}
                             onClick={() => {
@@ -763,17 +756,17 @@ export function InvoicesPage() {
                           </Button>
                         </>
                       ) : selectedInvoice.status === "paid" ? (
-                        <Badge className="invoice-paid-note" variant="success">
+                        <Badge variant="success">
                           Paid {selectedInvoice.paidDate || ""}
                         </Badge>
                       ) : null}
                     </div>
                   </>
                 ) : loadingDetail ? (
-                  <p className="transaction-empty">Loading invoice...</p>
+                  <p className="py-8 text-center text-sm text-muted-foreground">Loading invoice...</p>
                 ) : null}
                 <p
-                  className={`transaction-message${detailError ? " error" : ""}`}
+                  className={`min-h-5 text-xs ${detailError ? "text-destructive" : "text-[#225c50]"}`}
                   role="status"
                   aria-live="polite"
                 >
@@ -783,42 +776,68 @@ export function InvoicesPage() {
             ) : null}
           </div>
 
-          <form
-            className="settings-card invoice-form invoice-editor-compact"
-            ref={formRef}
-            onSubmit={saveInvoice}
+        </section>
+
+        <Dialog
+          open={editorOpen}
+          onOpenChange={(open) => {
+            if (!open && !saving) closeEditor();
+          }}
+        >
+          <DialogContent
+            className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl"
           >
-            <div className="section-row">
+            <form
+              className="flex min-h-0 flex-1 flex-col text-popover-foreground"
+              onSubmit={saveInvoice}
+            >
+              <DialogHeader className="shrink-0 border-b border-border px-5 py-4 pr-12 sm:px-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="mb-2 font-mono text-[0.7rem] uppercase leading-[1.35] tracking-[0.08em] text-[#3f665e]">Invoice editor</p>
+                    <DialogTitle className="text-[1.4rem] font-semibold tracking-[-0.045em]">
+                      {editingId ? `Edit ${form.invoiceNumber}` : "New invoice"}
+                    </DialogTitle>
+                  </div>
+                  <Badge variant="outline">Draft</Badge>
+                </div>
+                <DialogDescription>
+                  {editingId
+                    ? "Update this draft invoice and its line items."
+                    : "Create a draft invoice. An invoice number is assigned when you save."}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto px-5 py-5 sm:px-6">
+            <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <p className="app-kicker">Invoice editor</p>
-                <h2>
-                  {editingId ? `Edit ${form.invoiceNumber}` : "New invoice"}
-                </h2>
-              </div>
-              <Badge variant="outline">Draft</Badge>
-            </div>
-            <div className="transaction-fields">
-              <div className="transaction-field">
-                <Label className="mb-[0.45rem] block text-[0.58rem]" htmlFor="invoice-customer">Customer</Label>
+                <Label className="mb-[0.45rem] block" htmlFor="invoice-customer">Customer</Label>
                 <Select
                   value={form.customerId}
                   onValueChange={(value) =>
                     setForm((current) => ({
                       ...current,
-                      customerId: value,
+                      customerId: value ?? "",
                     }))
                   }
                   required
                   disabled={saving}
                 >
-                  <SelectTrigger id="invoice-customer" ref={customerRef}>
+                  <SelectTrigger id="invoice-customer">
                     <SelectValue
                       placeholder={
                         parties.length
                           ? "Choose a customer"
                           : "Register a customer first"
                       }
-                    />
+                     >
+                       {(value) =>
+                         value
+                           ? parties.find((party) => party.id === value)?.name
+                           : parties.length
+                             ? "Choose a customer"
+                             : "Register a customer first"
+                       }
+                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {parties.map((party) => (
@@ -829,20 +848,20 @@ export function InvoicesPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <Label className="transaction-field">
-                <span>Invoice number</span>
+              <Label className="block">
+                <span className="mb-[0.45rem] block">Invoice number</span>
                 <Input
                   value={form.invoiceNumber}
                   readOnly
                   spellCheck={false}
                   placeholder="Assigned automatically..."
                 />
-                <small>Assigned when the draft is first saved.</small>
+                <small className="mt-1.5 block min-h-4 normal-case leading-5 tracking-normal text-muted-foreground">Assigned when the draft is first saved.</small>
               </Label>
             </div>
-            <div className="transaction-fields">
-              <Label className="transaction-field">
-                <span>Issue date</span>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Label className="block">
+                <span className="mb-[0.45rem] block">Issue date</span>
                 <Input
                   value={form.issueDate}
                   onChange={(event) =>
@@ -856,8 +875,8 @@ export function InvoicesPage() {
                   disabled={saving}
                 />
               </Label>
-              <Label className="transaction-field">
-                <span>Due date</span>
+              <Label className="block">
+                <span className="mb-[0.45rem] block">Due date</span>
                 <Input
                   value={form.dueDate}
                   onChange={(event) =>
@@ -872,7 +891,7 @@ export function InvoicesPage() {
                 />
               </Label>
             </div>
-            <div className="invoice-items-heading">
+            <div className="flex items-center justify-between gap-2 font-mono text-xs uppercase">
               <span>Line items</span>
               <Button
                 variant="link"
@@ -890,9 +909,9 @@ export function InvoicesPage() {
             </div>
             <div>
               {form.items.map((item) => (
-                <div className="invoice-item-row" key={item.key}>
-                  <Label className="transaction-field">
-                    <span>Description</span>
+                <div className="grid grid-cols-1 items-end gap-2 border-t border-border py-3 sm:grid-cols-[minmax(0,1fr)_5rem_7.5rem_auto_2.5rem]" key={item.key}>
+                  <Label className="block">
+                    <span className="mb-[0.45rem] block">Description</span>
                     <Input
                       value={item.description}
                       onChange={(event) =>
@@ -903,8 +922,8 @@ export function InvoicesPage() {
                       disabled={saving}
                     />
                   </Label>
-                  <Label className="transaction-field">
-                    <span>Quantity</span>
+                  <Label className="block">
+                    <span className="mb-[0.45rem] block">Quantity</span>
                     <Input
                       value={item.quantity}
                       onChange={(event) =>
@@ -915,8 +934,8 @@ export function InvoicesPage() {
                       disabled={saving}
                     />
                   </Label>
-                  <Label className="transaction-field">
-                    <span>Unit price</span>
+                  <Label className="block">
+                    <span className="mb-[0.45rem] block">Unit price</span>
                     <Input
                       value={item.unitPrice}
                       onChange={(event) =>
@@ -927,11 +946,10 @@ export function InvoicesPage() {
                       disabled={saving}
                     />
                   </Label>
-                  <strong className="invoice-item-total">
+                  <strong className="pb-4 font-mono text-xs tabular-nums">
                     {money(itemTotal(item), currency)}
                   </strong>
                   <Button
-                    className="transaction-delete"
                     variant="ghost"
                     size="icon"
                     type="button"
@@ -951,9 +969,9 @@ export function InvoicesPage() {
                 </div>
               ))}
             </div>
-            <div className="transaction-fields">
-              <Label className="transaction-field">
-                <span>Tax rate (%)</span>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Label className="block">
+                <span className="mb-[0.45rem] block">Tax rate (%)</span>
                 <Input
                   value={form.taxRate}
                   onChange={(event) =>
@@ -967,8 +985,8 @@ export function InvoicesPage() {
                   disabled={saving}
                 />
               </Label>
-              <Label className="transaction-field">
-                <span>Notes</span>
+              <Label className="block">
+                <span className="mb-[0.45rem] block">Notes</span>
                 <Textarea
                   value={form.notes}
                   onChange={(event) =>
@@ -985,41 +1003,40 @@ export function InvoicesPage() {
                 />
               </Label>
             </div>
-            <div className="invoice-editor-total">
+            <div className="flex justify-between border-t-2 border-foreground py-4 font-mono tabular-nums">
               <span>Total</span>
               <strong>{money(total, currency)}</strong>
             </div>
-            <div className="invoice-form-actions">
-              <Button
-                className="button button-primary"
-                type="submit"
-                disabled={saving || loading}
-              >
-                {saving
-                  ? "Saving..."
-                  : editingId
-                    ? "Save changes"
-                    : "Save draft"}
-              </Button>
-              <Button
-                className="button button-secondary"
-                variant="secondary"
-                type="button"
-                disabled={saving}
-                onClick={resetForm}
-              >
-                {editingId ? "Cancel" : "Clear"}
-              </Button>
-            </div>
-            <p
-              className={`transaction-message${messageError ? " error" : ""}`}
-              role="status"
-              aria-live="polite"
-            >
-              {message}
-            </p>
-          </form>
-        </section>
+              </div>
+              <DialogFooter className="shrink-0 border-t border-border px-5 py-4 sm:px-6">
+                <p
+                  className={`min-h-5 flex-1 text-xs ${messageError ? "text-destructive" : "text-[#225c50]"}`}
+                  role="status"
+                  aria-live="polite"
+                >
+                  {message}
+                </p>
+                <div className="flex items-center gap-2 max-[520px]:grid max-[520px]:w-full max-[520px]:grid-cols-1 [&>*]:flex-1">
+                  <Button type="submit" disabled={saving || loading}>
+                    {saving
+                      ? "Saving..."
+                      : editingId
+                        ? "Save changes"
+                        : "Save draft"}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    type="button"
+                    disabled={saving}
+                    onClick={closeEditor}
+                  >
+                    {editingId ? "Cancel" : "Clear"}
+                  </Button>
+                </div>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
 
         <Dialog
           open={dialog?.type === "paid"}
@@ -1027,12 +1044,7 @@ export function InvoicesPage() {
             if (!open && action === null) setDialog(null);
           }}
         >
-          <DialogContent
-            onOpenAutoFocus={(event) => {
-              event.preventDefault();
-              document.getElementById("invoice-paid-date")?.focus();
-            }}
-          >
+          <DialogContent>
             <DialogHeader>
               <DialogTitle>Record payment</DialogTitle>
               <DialogDescription>
@@ -1040,8 +1052,8 @@ export function InvoicesPage() {
                 invoice as paid.
               </DialogDescription>
             </DialogHeader>
-            <Label className="transaction-field" htmlFor="invoice-paid-date">
-              <span>Payment date</span>
+            <Label className="block" htmlFor="invoice-paid-date">
+              <span className="mb-[0.45rem] block">Payment date</span>
               <Input
                 id="invoice-paid-date"
                 type="date"
@@ -1050,19 +1062,17 @@ export function InvoicesPage() {
                 required
               />
             </Label>
-            <DialogFooter className="invoice-form-actions">
-              <DialogClose asChild>
-                <Button
-                  className="button button-secondary"
+            <DialogFooter className="gap-2">
+              <DialogClose
+                render={<Button
                   variant="secondary"
                   type="button"
                   disabled={action !== null}
-                >
+                />}
+              >
                   Cancel
-                </Button>
               </DialogClose>
               <Button
-                className="button button-primary"
                 type="button"
                 disabled={action !== null || !paidDate}
                 onClick={() => {
@@ -1082,12 +1092,7 @@ export function InvoicesPage() {
             if (!open && action === null) setDialog(null);
           }}
         >
-          <AlertDialogContent
-            onOpenAutoFocus={(event) => {
-              event.preventDefault();
-              document.getElementById("invoice-delete-cancel")?.focus();
-            }}
-          >
+          <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Delete draft invoice?</AlertDialogTitle>
               <AlertDialogDescription>
@@ -1095,32 +1100,26 @@ export function InvoicesPage() {
                 undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter className="invoice-form-actions">
-              <AlertDialogCancel asChild>
-                <Button
-                  id="invoice-delete-cancel"
-                  className="button button-secondary"
-                  variant="secondary"
-                  type="button"
-                  disabled={action !== null}
-                >
-                  Cancel
-                </Button>
+            <AlertDialogFooter className="gap-2">
+              <AlertDialogCancel
+                id="invoice-delete-cancel"
+                variant="secondary"
+                type="button"
+                disabled={action !== null}
+              >
+                Cancel
               </AlertDialogCancel>
-              <AlertDialogAction asChild>
-                <Button
-                  className="button danger-button"
-                  variant="destructive"
-                  type="button"
-                  disabled={action !== null}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    if (dialog?.type === "delete")
-                      void runDetailAction("delete", dialog.invoiceId);
-                  }}
-                >
-                  {action === "delete" ? "Working..." : "Delete invoice"}
-                </Button>
+              <AlertDialogAction
+                variant="destructive"
+                type="button"
+                disabled={action !== null}
+                onClick={(event) => {
+                  event.preventDefault();
+                  if (dialog?.type === "delete")
+                    void runDetailAction("delete", dialog.invoiceId);
+                }}
+              >
+                {action === "delete" ? "Working..." : "Delete invoice"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

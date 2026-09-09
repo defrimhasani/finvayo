@@ -1,0 +1,33 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&display=swap");
+
+:root { --background: #f2efe8; --foreground: #171815; --muted-foreground: #66675f; --border: #c9c6bb; --sans: "Manrope", Arial, sans-serif; --mono: "DM Mono", monospace; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--background); color: var(--foreground); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+a { color: inherit; }
+.invoice-public { padding: 3rem 1rem; background: #e7e3d7; }
+.invoice-document { width: min(100%, 850px); margin: auto; padding: clamp(2rem, 6vw, 5rem); background: white; box-shadow: 12px 12px 0 rgba(23, 34, 30, 0.12); }
+.invoice-document header, .invoice-title, .invoice-meta, .invoice-totals div { display: flex; justify-content: space-between; align-items: center; }
+.wordmark { display: inline-flex; align-items: center; gap: 0.65rem; font-size: 1.15rem; font-weight: 700; letter-spacing: -0.04em; text-decoration: none; }
+.wordmark svg { width: 27px; fill: none; stroke: currentColor; stroke-linecap: square; stroke-linejoin: miter; stroke-width: 2.2; }
+.invoice-document header button { padding: 0.6rem 0.8rem; border: 1px solid var(--foreground); background: transparent; color: var(--foreground); cursor: pointer; font: inherit; }
+.invoice-title { margin-top: 4rem; padding-bottom: 2rem; border-bottom: 2px solid var(--foreground); align-items: end; }
+.invoice-title h1, .invoice-title p, .invoice-notes p { margin: 0; }
+.invoice-title h1 { font-size: clamp(2rem, 6vw, 4rem); letter-spacing: -0.06em; }
+.invoice-title div:last-child { display: grid; justify-items: end; gap: 0.35rem; }
+.invoice-title p, .invoice-meta span, .invoice-notes span { color: var(--muted-foreground); font-family: var(--mono); font-size: 0.62rem; text-transform: uppercase; }
+.invoice-title strong { font-family: var(--mono); font-size: 1rem; }
+.invoice-title div:last-child span { padding: 0.3rem 0.5rem; border: 1px solid var(--border); font-family: var(--mono); font-size: 0.6rem; text-transform: uppercase; }
+.invoice-meta { margin-top: 2rem; gap: 1rem; align-items: start; }
+.invoice-meta div { display: grid; gap: 0.35rem; }
+.invoice-document table { width: 100%; margin: 2rem 0; border-collapse: collapse; font-size: 0.75rem; }
+.invoice-document th, .invoice-document td { padding: 0.8rem 0.4rem; border-bottom: 1px solid var(--border); text-align: right; }
+.invoice-document th:first-child, .invoice-document td:first-child { text-align: left; }
+.invoice-totals { width: min(100%, 320px); margin-left: auto; }
+.invoice-totals div { padding: 0.55rem 0; }
+.invoice-total { margin-top: 0.4rem; border-top: 2px solid var(--foreground); font-size: 1.1rem; }
+.invoice-notes { margin-top: 2rem; }
+.invoice-notes p { margin-top: 0.5rem; white-space: pre-wrap; }
+.invoice-document footer { width: 100%; margin-top: 4rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--muted-foreground); font-size: 0.62rem; }
+:focus-visible { outline: 3px solid #185cff; outline-offset: 4px; }
+@media (max-width: 580px) { .invoice-document { padding: 1.5rem; overflow-x: auto; } .invoice-meta { display: grid; } }
+@media print { .invoice-public { padding: 0; background: white; } .invoice-document { width: 100%; box-shadow: none; } .invoice-document header button { display: none; } }

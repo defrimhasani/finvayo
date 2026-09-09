@@ -28,17 +28,17 @@ export function ForgotPasswordPage() {
       heading="Get back to your cash plan."
       intro="We will send a secure, single-use link that expires after one hour."
     >
-      <Card className="login-panel" aria-labelledby="forgot-title">
-        <p className="panel-count">01 / Recover access</p>
-        <h2 id="forgot-title">Reset your password.</h2>
-        <p className="panel-copy">Enter the email associated with your Finvayo workspace.</p>
+      <Card className="relative p-[clamp(2rem,4vw,3.5rem)] shadow-[8px_8px_0_var(--accent)] after:absolute after:right-0 after:top-0 after:h-[7px] after:w-[52px] after:bg-accent sm:shadow-[14px_14px_0_var(--accent)]" aria-labelledby="forgot-title">
+        <p className="font-mono text-xs uppercase tracking-[0.1em] text-muted-foreground">01 / Recover access</p>
+        <h2 className="mb-3 mt-10 text-balance text-[clamp(2.1rem,4vw,3.4rem)] font-medium leading-none tracking-[-0.065em]" id="forgot-title">Reset your password.</h2>
+        <p className="text-sm text-muted-foreground">Enter the email associated with your Finvayo workspace.</p>
         <FormAlert message={message} success={sent} role="status" />
-        <form className="login-form" action="/auth/forgot-password" method="post">
+        <form className="mt-10 grid gap-3" action="/auth/forgot-password" method="post">
           <Label htmlFor="email">Work email</Label>
-          <Input id="email" name="email" type="email" autoComplete="email" required />
-          <Button className="button button-primary" type="submit">Send reset link <span aria-hidden="true">{"\u2192"}</span></Button>
+          <Input className="min-h-[54px]" id="email" name="email" type="email" autoComplete="email" required />
+          <Button className="mt-2 w-full" type="submit">Send reset link <span aria-hidden="true">{"\u2192"}</span></Button>
         </form>
-        <p className="login-terms">For privacy, the confirmation is the same whether or not an account exists.</p>
+        <p className="mt-5 text-xs leading-5 text-muted-foreground">For privacy, the confirmation is the same whether or not an account exists.</p>
       </Card>
     </AuthLayout>
   );

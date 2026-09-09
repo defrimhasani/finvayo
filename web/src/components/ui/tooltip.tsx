@@ -1,8 +1,10 @@
-import * as TooltipPrimitive from "@radix-ui/react-tooltip";
-import type { ComponentProps } from "react";
-import { cn } from "../../lib/utils";
+import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
 
-export const TooltipProvider = TooltipPrimitive.Provider;
-export const Tooltip = TooltipPrimitive.Root;
-export const TooltipTrigger = TooltipPrimitive.Trigger;
-export function TooltipContent({ className, sideOffset = 6, ...props }: ComponentProps<typeof TooltipPrimitive.Content>) { return <TooltipPrimitive.Portal><TooltipPrimitive.Content sideOffset={sideOffset} className={cn("z-50 max-w-72 border border-foreground bg-card px-3 py-2 text-xs leading-5 text-foreground shadow-[5px_5px_0_var(--accent)]", className)} {...props} /></TooltipPrimitive.Portal>; }
+import { cn } from "@/lib/utils";
+
+function TooltipProvider({ delay = 0, ...props }: TooltipPrimitive.Provider.Props) { return <TooltipPrimitive.Provider data-slot="tooltip-provider" delay={delay} {...props} />; }
+function Tooltip(props: TooltipPrimitive.Root.Props) { return <TooltipPrimitive.Root data-slot="tooltip" {...props} />; }
+function TooltipTrigger(props: TooltipPrimitive.Trigger.Props) { return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />; }
+function TooltipContent({ className, side = "top", sideOffset = 4, align = "center", alignOffset = 0, children, ...props }: TooltipPrimitive.Popup.Props & Pick<TooltipPrimitive.Positioner.Props, "align" | "alignOffset" | "side" | "sideOffset">) { return <TooltipPrimitive.Portal><TooltipPrimitive.Positioner align={align} alignOffset={alignOffset} side={side} sideOffset={sideOffset} className="isolate z-50"><TooltipPrimitive.Popup data-slot="tooltip-content" className={cn("z-50 inline-flex w-fit max-w-xs origin-(--transform-origin) items-center rounded-md bg-foreground px-3 py-1.5 text-xs text-background data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95", className)} {...props}>{children}<TooltipPrimitive.Arrow className="size-2.5 rotate-45 rounded-[2px] bg-foreground fill-foreground" /></TooltipPrimitive.Popup></TooltipPrimitive.Positioner></TooltipPrimitive.Portal>; }
+
+export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider };

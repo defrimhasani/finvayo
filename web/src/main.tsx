@@ -1,24 +1,23 @@
-import { StrictMode, type ReactNode } from "react";
+import { lazy, StrictMode, Suspense, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles/globals.css";
-import "../../public/styles.css";
-import "../../public/product.css";
-import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
-import AppPage from "./pages/AppPage";
-import InvoicesPage from "./pages/InvoicesPage";
-import { LandingPage } from "./pages/LandingPage";
-import { LoginPage } from "./pages/LoginPage";
-import { NotFoundPage } from "./pages/NotFoundPage";
-import { ResetPasswordPage } from "./pages/ResetPasswordPage";
-import { SignupPage } from "./pages/SignupPage";
-import SettingsPage from "./pages/SettingsPage";
-import TransactionsPage from "./pages/TransactionsPage";
-import PartiesPage from "./pages/PartiesPage";
-import CashPlanPage from "./pages/CashPlanPage";
-import ScenariosPage from "./pages/ScenariosPage";
-import ReviewsPage from "./pages/ReviewsPage";
 import { setPageMetadata } from "./utils/page";
 import "./types";
+
+const LandingPage = lazy(() => import("./pages/LandingPage").then((module) => ({ default: module.LandingPage })));
+const LoginPage = lazy(() => import("./pages/LoginPage").then((module) => ({ default: module.LoginPage })));
+const SignupPage = lazy(() => import("./pages/SignupPage").then((module) => ({ default: module.SignupPage })));
+const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage").then((module) => ({ default: module.ForgotPasswordPage })));
+const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage").then((module) => ({ default: module.ResetPasswordPage })));
+const NotFoundPage = lazy(() => import("./pages/NotFoundPage").then((module) => ({ default: module.NotFoundPage })));
+const AppPage = lazy(() => import("./pages/AppPage"));
+const TransactionsPage = lazy(() => import("./pages/TransactionsPage"));
+const PartiesPage = lazy(() => import("./pages/PartiesPage"));
+const CashPlanPage = lazy(() => import("./pages/CashPlanPage"));
+const ScenariosPage = lazy(() => import("./pages/ScenariosPage"));
+const ReviewsPage = lazy(() => import("./pages/ReviewsPage"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const InvoicesPage = lazy(() => import("./pages/InvoicesPage"));
 
 const path = window.location.pathname.replace(/\/+$/, "") || "/";
 const bootstrap = window.__FINVAYO__ ?? {};
@@ -107,4 +106,4 @@ switch (path) {
 const root = document.getElementById("root");
 if (!root) throw new Error("Missing React root element");
 
-createRoot(root).render(<StrictMode>{page}</StrictMode>);
+createRoot(root).render(<StrictMode><Suspense fallback={<div className="grid min-h-svh place-items-center bg-background text-sm text-muted-foreground">Loading Finvayo...</div>}>{page}</Suspense></StrictMode>);

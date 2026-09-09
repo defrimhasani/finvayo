@@ -13,6 +13,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "../components/ui/alert-dialog";
+import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { Input } from "../components/ui/input";
@@ -262,65 +263,112 @@ export function SettingsPage() {
 
   return (
     <AppShell activePage="settings">
-      <main className="app-main settings-main" id="app-main">
-        <header className="workspace-header">
-          <div><p className="app-kicker">Workspace controls</p><h1>Settings</h1></div>
+      <main
+        className="min-h-screen w-full px-4 pb-24 pt-6 min-[761px]:px-6 min-[761px]:pb-20 min-[1200px]:px-8"
+        id="app-main"
+      >
+        <header className="flex min-h-[150px] items-center border-b border-border">
+          <div>
+            <p className="mb-2 font-mono text-[0.7rem] uppercase leading-[1.35] tracking-[0.08em] text-[#3f665e]">Workspace controls</p>
+            <h1 className="text-[clamp(2.5rem,4.2vw,4.5rem)] font-semibold tracking-[-0.06em]">Settings</h1>
+          </div>
         </header>
-        <section className="settings-grid" aria-busy={loading}>
-          <form className="settings-card settings-form" onSubmit={saveSettings}>
-            <div><p className="app-kicker">Planning defaults</p><h2>Workspace</h2><p>These values shape how your cash plan is displayed and protected.</p></div>
-            <Label className="transaction-field"><span>Workspace name</span><Input value={form.name} onChange={(event) => update("name", event.target.value)} maxLength={80} autoComplete="organization" required disabled={loading} /></Label>
-            <div className="transaction-fields">
-              <div className="transaction-field"><Label className="mb-[0.45rem] block text-[0.58rem]" htmlFor="settings-currency">Currency</Label><Select value={form.currency} onValueChange={(value) => update("currency", value)} disabled={loading || settings?.currencyLocked}><SelectTrigger id="settings-currency"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="USD">USD - US dollar</SelectItem><SelectItem value="EUR">EUR - Euro</SelectItem><SelectItem value="GBP">GBP - British pound</SelectItem></SelectContent></Select><small>{settings?.currencyLocked ? "Locked because this workspace has financial records." : "Currency locks after your first financial record."}</small></div>
-              <div className="transaction-field"><Label className="mb-[0.45rem] block text-[0.58rem]" htmlFor="settings-timezone">Timezone</Label><Select value={form.timezone} onValueChange={(value) => update("timezone", value)} disabled={loading}><SelectTrigger id="settings-timezone"><SelectValue /></SelectTrigger><SelectContent>{TIMEZONES.map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select></div>
+        <section className="grid items-start gap-4 pt-5 lg:grid-cols-[minmax(340px,460px)_minmax(0,1fr)]" aria-busy={loading}>
+          <form className="grid gap-4 border border-foreground bg-card p-[clamp(1.5rem,3vw,2.5rem)] text-card-foreground shadow-[5px_5px_0_rgba(23,24,21,0.12)]" onSubmit={saveSettings}>
+            <div>
+              <p className="mb-2 font-mono text-[0.7rem] uppercase leading-[1.35] tracking-[0.08em] text-[#3f665e]">Planning defaults</p>
+              <h2 className="text-[1.4rem] font-semibold tracking-[-0.045em]">Workspace</h2>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">These values shape how your cash plan is displayed and protected.</p>
             </div>
-            <div className="transaction-fields">
-              <Label className="transaction-field"><span>Minimum cash buffer</span><Input value={form.minimumBuffer} onChange={(event) => update("minimumBuffer", event.target.value)} inputMode="decimal" required placeholder="0.00" disabled={loading} /></Label>
-              <Label className="transaction-field"><span>Tax already reserved</span><Input value={form.taxReserve} onChange={(event) => update("taxReserve", event.target.value)} inputMode="decimal" required placeholder="0.00" disabled={loading} /></Label>
-            </div>
-            <div className="transaction-fields">
-              <div className="transaction-field"><Label className="mb-[0.45rem] block text-[0.58rem]" htmlFor="settings-tax-reserve-method">Tax reserve method</Label><Select value={form.taxReserveMode} onValueChange={(value) => update("taxReserveMode", value as SettingsForm["taxReserveMode"])} disabled={loading}><SelectTrigger id="settings-tax-reserve-method"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="fixed">Fixed amount only</SelectItem><SelectItem value="percentage">Reserve future income percentage</SelectItem></SelectContent></Select></div>
-              <Label className="transaction-field"><span>Future income tax rate (%)</span><Input value={form.taxRate} onChange={(event) => update("taxRate", event.target.value)} inputMode="decimal" required placeholder="0" disabled={loading} /></Label>
-            </div>
-            <Label className="transaction-field"><span>Typical customer payment delay (days)</span><Input value={form.paymentDelayDays} onChange={(event) => update("paymentDelayDays", event.target.value)} type="number" min={0} max={365} required disabled={loading} /></Label>
-            <Button className="button button-primary" type="submit" disabled={loading || saving}>{saving ? "Saving..." : "Save workspace settings"}</Button>
-            <p className={`transaction-message${settingsError ? " error" : ""}`} role="status" aria-live="polite">{settingsMessage}</p>
-          </form>
-          <div className="settings-stack">
-            <Card className="settings-card"><p className="app-kicker">Account</p><h2>Owner details</h2><div className="settings-fact"><span>Email</span><strong>{settings?.email || "Loading..."}</strong></div><p className="settings-note">Your email identifies the workspace owner and is not currently editable.</p></Card>
-            <Card className="settings-card">
-              <p className="app-kicker">Subscription</p><h2>Billing</h2>
-              <div className="settings-fact"><span>Status</span><strong>{billing ? statusLabel[0].toUpperCase() + statusLabel.slice(1) : "Loading..."}</strong></div>
-              <p className="settings-note">{billingNote}</p>
-              <div className="billing-actions">
-                {billing && status === "trialing" ? <><Button className="button button-primary" type="button" disabled={billingAction !== null} onClick={() => openBilling("/api/billing/checkout", { interval: "monthly" })}>Choose monthly</Button><Button className="button button-secondary" variant="secondary" type="button" disabled={billingAction !== null} onClick={() => openBilling("/api/billing/checkout", { interval: "annual" })}>Choose annual</Button></> : null}
-                {billing && status !== "trialing" ? <Button className="button button-primary" type="button" disabled={billingAction !== null} onClick={() => openBilling("/api/billing/portal")}>Manage billing</Button> : null}
+            <Label className="block">
+              <span className="mb-[0.45rem] block">Workspace name</span>
+              <Input value={form.name} onChange={(event) => update("name", event.target.value)} maxLength={80} autoComplete="organization" required disabled={loading} />
+            </Label>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+              <div>
+                <Label className="mb-[0.45rem] block" htmlFor="settings-currency">Currency</Label>
+                <Select value={form.currency} onValueChange={(value) => update("currency", value ?? "USD")} disabled={loading || settings?.currencyLocked}>
+                  <SelectTrigger id="settings-currency"><SelectValue>{() => form.currency === "EUR" ? "EUR - Euro" : form.currency === "GBP" ? "GBP - British pound" : "USD - US dollar"}</SelectValue></SelectTrigger>
+                  <SelectContent><SelectItem value="USD">USD - US dollar</SelectItem><SelectItem value="EUR">EUR - Euro</SelectItem><SelectItem value="GBP">GBP - British pound</SelectItem></SelectContent>
+                </Select>
+                <small className="mt-1.5 block min-h-4 text-xs leading-5 text-muted-foreground">{settings?.currencyLocked ? "Locked because this workspace has financial records." : "Currency locks after your first financial record."}</small>
               </div>
-              <p className={`transaction-message${billingError ? " error" : ""}`} role="status" aria-live="polite">{billingMessage}</p>
+              <div>
+                <Label className="mb-[0.45rem] block" htmlFor="settings-timezone">Timezone</Label>
+                <Select value={form.timezone} onValueChange={(value) => update("timezone", value ?? "UTC")} disabled={loading}>
+                  <SelectTrigger id="settings-timezone"><SelectValue>{() => TIMEZONES.find(([value]) => value === form.timezone)?.[1]}</SelectValue></SelectTrigger>
+                  <SelectContent>{TIMEZONES.map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Label className="block"><span className="mb-[0.45rem] block">Minimum cash buffer</span><Input value={form.minimumBuffer} onChange={(event) => update("minimumBuffer", event.target.value)} inputMode="decimal" required placeholder="0.00" disabled={loading} /></Label>
+              <Label className="block"><span className="mb-[0.45rem] block">Tax already reserved</span><Input value={form.taxReserve} onChange={(event) => update("taxReserve", event.target.value)} inputMode="decimal" required placeholder="0.00" disabled={loading} /></Label>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <Label className="mb-[0.45rem] block" htmlFor="settings-tax-reserve-method">Tax reserve method</Label>
+                <Select value={form.taxReserveMode} onValueChange={(value) => update("taxReserveMode", (value ?? "fixed") as SettingsForm["taxReserveMode"])} disabled={loading}>
+                  <SelectTrigger id="settings-tax-reserve-method"><SelectValue>{() => form.taxReserveMode === "percentage" ? "Reserve future income percentage" : "Fixed amount only"}</SelectValue></SelectTrigger>
+                  <SelectContent><SelectItem value="fixed">Fixed amount only</SelectItem><SelectItem value="percentage">Reserve future income percentage</SelectItem></SelectContent>
+                </Select>
+              </div>
+              <Label className="block"><span className="mb-[0.45rem] block">Future income tax rate (%)</span><Input value={form.taxRate} onChange={(event) => update("taxRate", event.target.value)} inputMode="decimal" required placeholder="0" disabled={loading} /></Label>
+            </div>
+            <Label className="block"><span className="mb-[0.45rem] block">Typical customer payment delay (days)</span><Input value={form.paymentDelayDays} onChange={(event) => update("paymentDelayDays", event.target.value)} type="number" min={0} max={365} required disabled={loading} /></Label>
+            <Button className="mt-2 w-full" type="submit" disabled={loading || saving}>{saving ? "Saving..." : "Save workspace settings"}</Button>
+            <p className={`min-h-5 text-xs ${settingsError ? "text-destructive" : "text-[#225c50]"}`} role="status" aria-live="polite">{settingsMessage}</p>
+          </form>
+          <div className="grid min-w-0 gap-4 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+            <Card className="p-[clamp(1.5rem,3vw,2.5rem)]">
+              <p className="mb-2 font-mono text-[0.7rem] uppercase tracking-[0.08em] text-[#3f665e]">Account</p>
+              <h2 className="text-[1.4rem] font-semibold tracking-[-0.045em]">Owner details</h2>
+              <div className="mt-6 flex justify-between gap-4 border-y border-border py-4 text-sm"><span className="text-muted-foreground">Email</span><strong className="min-w-0 break-all text-right">{settings?.email || "Loading..."}</strong></div>
+              <p className="mt-4 text-sm leading-6 text-muted-foreground">Your email identifies the workspace owner and is not currently editable.</p>
             </Card>
-            <Card className="settings-card"><p className="app-kicker">Your data</p><h2>Export</h2><p className="settings-note">Download a complete JSON archive or a spreadsheet-ready transaction CSV.</p><div className="billing-actions"><Button asChild className="button button-secondary" variant="secondary"><a href="/api/export?format=json">Download JSON</a></Button><Button asChild className="button button-secondary" variant="secondary"><a href="/api/export?format=csv">Download CSV</a></Button></div></Card>
-            <Card className="settings-card danger-card">
-              <p className="app-kicker">Danger zone</p><h2>Reset or delete</h2>
-              <p className="settings-note">Resetting removes all financial records and review history but keeps your account and parties. Account deletion removes the entire workspace and cannot proceed while a paid subscription is active.</p>
-              <Label className="transaction-field"><span>Current password</span><Input value={password} onChange={(event) => setPassword(event.target.value)} type="password" autoComplete="current-password" disabled={destructiveAction !== null} /></Label>
+            <Card className="p-[clamp(1.5rem,3vw,2.5rem)]">
+              <p className="mb-2 font-mono text-[0.7rem] uppercase tracking-[0.08em] text-[#3f665e]">Subscription</p>
+              <h2 className="text-[1.4rem] font-semibold tracking-[-0.045em]">Billing</h2>
+              <div className="mt-6 flex items-center justify-between gap-4 border-y border-border py-4 text-sm">
+                <span className="text-muted-foreground">Status</span>
+                {billing ? <Badge variant={status === "active" || status === "trialing" ? "success" : status === "canceled" || status === "unpaid" ? "destructive" : "outline"}>{statusLabel}</Badge> : <span className="font-semibold">Loading...</span>}
+              </div>
+              <p className="mt-4 text-sm leading-6 text-muted-foreground">{billingNote}</p>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                {billing && status === "trialing" ? <><Button type="button" disabled={billingAction !== null} onClick={() => openBilling("/api/billing/checkout", { interval: "monthly" })}>Choose monthly</Button><Button variant="secondary" type="button" disabled={billingAction !== null} onClick={() => openBilling("/api/billing/checkout", { interval: "annual" })}>Choose annual</Button></> : null}
+                {billing && status !== "trialing" ? <Button className="sm:col-span-2" type="button" disabled={billingAction !== null} onClick={() => openBilling("/api/billing/portal")}>Manage billing</Button> : null}
+              </div>
+              <p className={`mt-3 min-h-5 text-xs ${billingError ? "text-destructive" : "text-[#225c50]"}`} role="status" aria-live="polite">{billingMessage}</p>
+            </Card>
+            <Card className="p-[clamp(1.5rem,3vw,2.5rem)]">
+              <p className="mb-2 font-mono text-[0.7rem] uppercase tracking-[0.08em] text-[#3f665e]">Your data</p>
+              <h2 className="text-[1.4rem] font-semibold tracking-[-0.045em]">Export</h2>
+              <p className="mt-4 text-sm leading-6 text-muted-foreground">Download a complete JSON archive or a spreadsheet-ready transaction CSV.</p>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2"><Button nativeButton={false} render={<a href="/api/export?format=json" />} variant="secondary">Download JSON</Button><Button nativeButton={false} render={<a href="/api/export?format=csv" />} variant="secondary">Download CSV</Button></div>
+            </Card>
+            <Card className="border-destructive p-[clamp(1.5rem,3vw,2.5rem)]">
+              <p className="mb-2 font-mono text-[0.7rem] uppercase tracking-[0.08em] text-destructive">Danger zone</p>
+              <h2 className="text-[1.4rem] font-semibold tracking-[-0.045em]">Reset or delete</h2>
+              <p className="mt-4 text-sm leading-6 text-muted-foreground">Resetting removes all financial records and review history but keeps your account and parties. Account deletion removes the entire workspace and cannot proceed while a paid subscription is active.</p>
+              <Label className="mt-4 block"><span className="mb-[0.45rem] block">Current password</span><Input value={password} onChange={(event) => setPassword(event.target.value)} type="password" autoComplete="current-password" disabled={destructiveAction !== null} /></Label>
               <AlertDialog open={pendingDestructiveAction !== null} onOpenChange={(open) => { if (!open && destructiveAction === null) setPendingDestructiveAction(null); }}>
-                <div className="billing-actions">
-                  <AlertDialogTrigger asChild><Button className="button button-secondary" variant="secondary" type="button" disabled={!password || destructiveAction !== null} onClick={() => setPendingDestructiveAction("reset")}>Reset financial plan</Button></AlertDialogTrigger>
-                  <AlertDialogTrigger asChild><Button className="button danger-button" variant="destructive" type="button" disabled={!password || destructiveAction !== null} onClick={() => setPendingDestructiveAction("delete")}>Delete account</Button></AlertDialogTrigger>
+                <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                  <AlertDialogTrigger render={<Button variant="secondary" type="button" disabled={!password || destructiveAction !== null} onClick={() => setPendingDestructiveAction("reset")} />}>Reset financial plan</AlertDialogTrigger>
+                  <AlertDialogTrigger render={<Button variant="destructive" type="button" disabled={!password || destructiveAction !== null} onClick={() => setPendingDestructiveAction("delete")} />}>Delete account</AlertDialogTrigger>
                 </div>
-                <AlertDialogContent className="settings-card">
+                <AlertDialogContent>
                   <AlertDialogHeader>
                     <AlertDialogTitle>Confirm {pendingDestructiveAction === "delete" ? "account deletion" : "financial plan reset"}</AlertDialogTitle>
                     <AlertDialogDescription>{pendingDestructiveAction === "delete" ? "Permanently delete your Finvayo account and all workspace data?" : "Delete all financial records and review history?"} This cannot be undone.</AlertDialogDescription>
                   </AlertDialogHeader>
-                  <p className={`transaction-message${dataMessage ? " error" : ""}`} role="status" aria-live="polite">{dataMessage}</p>
-                  <AlertDialogFooter className="billing-actions">
-                    <AlertDialogAction asChild><Button className="button danger-button" variant="destructive" type="button" disabled={destructiveAction !== null} onClick={(event) => { event.preventDefault(); void confirmDestructiveAction(); }}>{destructiveAction ? "Working..." : "Confirm"}</Button></AlertDialogAction>
-                    <AlertDialogCancel asChild><Button className="button button-secondary" variant="secondary" type="button" disabled={destructiveAction !== null}>Cancel</Button></AlertDialogCancel>
+                  <p className={`min-h-5 text-xs ${dataMessage ? "text-destructive" : "text-[#225c50]"}`} role="status" aria-live="polite">{dataMessage}</p>
+                  <AlertDialogFooter className="gap-2">
+                    <AlertDialogAction variant="destructive" type="button" disabled={destructiveAction !== null} onClick={(event) => { event.preventDefault(); void confirmDestructiveAction(); }}>{destructiveAction ? "Working..." : "Confirm"}</AlertDialogAction>
+                    <AlertDialogCancel variant="secondary" type="button" disabled={destructiveAction !== null}>Cancel</AlertDialogCancel>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
-              {!pendingDestructiveAction ? <p className={`transaction-message${dataMessage ? " error" : ""}`} role="status" aria-live="polite">{dataMessage}</p> : null}
+              {!pendingDestructiveAction ? <p className={`mt-3 min-h-5 text-xs ${dataMessage ? "text-destructive" : "text-[#225c50]"}`} role="status" aria-live="polite">{dataMessage}</p> : null}
             </Card>
           </div>
         </section>

@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,500;1,6..72,500&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -48,9 +49,17 @@
   --input: #aaa79d;
   --ring: #185cff;
   --radius: 2px;
+  --sans: "Manrope", Arial, sans-serif;
+  --serif: "Newsreader", Georgia, serif;
+  --mono: "DM Mono", monospace;
 }
 
 @layer base {
+  * { @apply border-border; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { @apply m-0 overflow-x-hidden bg-background font-sans text-foreground antialiased; }
+  a { color: inherit; text-underline-offset: 0.22em; touch-action: manipulation; }
+  :focus-visible { outline: 3px solid var(--ring); outline-offset: 4px; }
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]) {
     cursor: pointer;

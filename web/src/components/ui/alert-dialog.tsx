@@ -1,13 +1,19 @@
-import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
-import type { ComponentProps, HTMLAttributes } from "react";
-import { cn } from "../../lib/utils";
+import { AlertDialog as AlertDialogPrimitive } from "@base-ui/react/alert-dialog";
+import type { ComponentProps } from "react";
 
-export const AlertDialog = AlertDialogPrimitive.Root;
-export const AlertDialogTrigger = AlertDialogPrimitive.Trigger;
-export const AlertDialogAction = AlertDialogPrimitive.Action;
-export const AlertDialogCancel = AlertDialogPrimitive.Cancel;
-export function AlertDialogContent({ className, ...props }: ComponentProps<typeof AlertDialogPrimitive.Content>) { return <AlertDialogPrimitive.Portal><AlertDialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/60" /><AlertDialogPrimitive.Content className={cn("fixed left-1/2 top-1/2 z-50 grid w-[min(92vw,520px)] -translate-x-1/2 -translate-y-1/2 gap-4 border border-foreground bg-card p-6 shadow-[10px_10px_0_var(--accent)] outline-none", className)} {...props} /></AlertDialogPrimitive.Portal>; }
-export function AlertDialogHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) { return <div className={cn("grid gap-2", className)} {...props} />; }
-export function AlertDialogFooter({ className, ...props }: HTMLAttributes<HTMLDivElement>) { return <div className={cn("flex justify-end gap-2 max-sm:flex-col-reverse", className)} {...props} />; }
-export function AlertDialogTitle({ className, ...props }: ComponentProps<typeof AlertDialogPrimitive.Title>) { return <AlertDialogPrimitive.Title className={cn("text-2xl font-semibold tracking-[-0.04em]", className)} {...props} />; }
-export function AlertDialogDescription({ className, ...props }: ComponentProps<typeof AlertDialogPrimitive.Description>) { return <AlertDialogPrimitive.Description className={cn("text-sm leading-6 text-muted-foreground", className)} {...props} />; }
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+
+function AlertDialog(props: AlertDialogPrimitive.Root.Props) { return <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} />; }
+function AlertDialogTrigger(props: AlertDialogPrimitive.Trigger.Props) { return <AlertDialogPrimitive.Trigger data-slot="alert-dialog-trigger" {...props} />; }
+function AlertDialogPortal(props: AlertDialogPrimitive.Portal.Props) { return <AlertDialogPrimitive.Portal data-slot="alert-dialog-portal" {...props} />; }
+function AlertDialogOverlay({ className, ...props }: AlertDialogPrimitive.Backdrop.Props) { return <AlertDialogPrimitive.Backdrop data-slot="alert-dialog-overlay" className={cn("fixed inset-0 isolate z-50 bg-black/40 backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0", className)} {...props} />; }
+function AlertDialogContent({ className, size = "default", ...props }: AlertDialogPrimitive.Popup.Props & { size?: "default" | "sm" }) { return <AlertDialogPortal><AlertDialogOverlay /><AlertDialogPrimitive.Popup data-slot="alert-dialog-content" data-size={size} className={cn("group/alert-dialog-content fixed left-1/2 top-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-5 text-popover-foreground shadow-xl ring-1 ring-foreground/10 outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-[size=default]:sm:max-w-md data-[size=sm]:sm:max-w-sm", className)} {...props} /></AlertDialogPortal>; }
+function AlertDialogHeader({ className, ...props }: ComponentProps<"div">) { return <div data-slot="alert-dialog-header" className={cn("grid gap-2 text-center sm:text-left", className)} {...props} />; }
+function AlertDialogFooter({ className, ...props }: ComponentProps<"div">) { return <div data-slot="alert-dialog-footer" className={cn("-mx-5 -mb-5 mt-2 flex flex-col-reverse gap-2 rounded-b-xl border-t bg-muted/50 p-4 sm:flex-row sm:justify-end", className)} {...props} />; }
+function AlertDialogTitle({ className, ...props }: AlertDialogPrimitive.Title.Props) { return <AlertDialogPrimitive.Title data-slot="alert-dialog-title" className={cn("text-base font-medium", className)} {...props} />; }
+function AlertDialogDescription({ className, ...props }: AlertDialogPrimitive.Description.Props) { return <AlertDialogPrimitive.Description data-slot="alert-dialog-description" className={cn("text-sm text-muted-foreground", className)} {...props} />; }
+function AlertDialogAction({ className, ...props }: ComponentProps<typeof Button>) { return <Button data-slot="alert-dialog-action" className={cn(className)} {...props} />; }
+function AlertDialogCancel({ className, variant = "outline", size = "default", ...props }: AlertDialogPrimitive.Close.Props & Pick<ComponentProps<typeof Button>, "variant" | "size">) { return <AlertDialogPrimitive.Close data-slot="alert-dialog-cancel" className={cn(className)} render={<Button variant={variant} size={size} />} {...props} />; }
+
+export { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogOverlay, AlertDialogPortal, AlertDialogTitle, AlertDialogTrigger };

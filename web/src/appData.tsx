@@ -1,5 +1,8 @@
 import type { ReactNode } from "react";
 
+import { Badge } from "./components/ui/badge";
+import { Button } from "./components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { money } from "./utils";
 
 export type Direction = "inflow" | "outflow";
@@ -56,12 +59,12 @@ export function categoryActivity(entries: CashEntry[], direction: Direction): Ca
 }
 
 export function PageHeader({ kicker, title, children }: { kicker: string; title: string; children?: ReactNode }) {
-  return <header className="workspace-header"><div><p className="app-kicker">{kicker}</p><h1>{title}</h1></div>{children}</header>;
+  return <header className="flex flex-col gap-5 border-b border-foreground pb-6 sm:flex-row sm:items-end sm:justify-between"><div><p className="mb-2 font-mono text-[0.68rem] font-medium uppercase tracking-[0.12em] text-muted-foreground">{kicker}</p><h1 className="font-serif text-4xl leading-none tracking-[-0.04em] sm:text-5xl">{title}</h1></div>{children}</header>;
 }
 
 export function UpcomingLedger({ overview, currency, compact = false }: { overview: Overview | null; currency: string; compact?: boolean }) {
   const upcoming = overview?.events.filter((entry) => daysBetween(entry.date, overview.horizonStart) <= 14).slice(0, compact ? 3 : 8) ?? [];
-  return <article className="ledger-card"><div className="section-row"><div><p className="app-kicker">Coming up</p><h2>Next 14 days</h2></div><a href="/app/transactions">Manage entries</a></div><div>{!overview ? <p className="transaction-empty">No forecast is available until current cash is confirmed.</p> : upcoming.length === 0 ? <p className="transaction-empty">No projected payments or expenses in the next 14 days.</p> : upcoming.map((entry, index) => { const days = daysBetween(entry.date, overview.horizonStart); return <div className="ledger-row" key={`${entry.date}-${index}`}><time dateTime={entry.date}><strong>{days === 0 ? "Now" : `+${days}`}</strong><span>{days === 0 ? "" : "days"}</span></time><div><strong>{entry.name}</strong><span>{entry.direction === "inflow" ? "Projected income" : "Planned expense"}</span></div><b className={entry.direction === "inflow" ? "money-in" : ""}>{entry.direction === "inflow" ? "+" : "−"}{money(entry.amountMinor, currency)}</b></div>; })}</div></article>;
+  return <article><Card><CardHeader className="flex-row items-end justify-between gap-4 border-b"><div><p className="mb-2 font-mono text-[0.68rem] font-medium uppercase tracking-[0.12em] text-muted-foreground">Coming up</p><CardTitle className="text-2xl">Next 14 days</CardTitle></div><Button nativeButton={false} render={<a href="/app/transactions" />} variant="link">Manage entries</Button></CardHeader><CardContent className="p-0">{!overview ? <p className="p-6 text-sm leading-6 text-muted-foreground">No forecast is available until current cash is confirmed.</p> : upcoming.length === 0 ? <p className="p-6 text-sm leading-6 text-muted-foreground">No projected payments or expenses in the next 14 days.</p> : upcoming.map((entry, index) => { const days = daysBetween(entry.date, overview.horizonStart); return <div className="grid grid-cols-[3.5rem_minmax(0,1fr)] items-center gap-x-4 gap-y-2 border-b p-4 last:border-b-0 sm:grid-cols-[4rem_minmax(0,1fr)_auto] sm:px-6" key={`${entry.date}-${index}`}><time className="row-span-2 flex flex-col font-mono text-xs uppercase text-muted-foreground" dateTime={entry.date}><strong className="text-base text-foreground">{days === 0 ? "Now" : `+${days}`}</strong><span>{days === 0 ? "" : "days"}</span></time><div className="min-w-0"><strong className="block truncate text-sm">{entry.name}</strong><Badge className="mt-1" variant={entry.direction === "inflow" ? "success" : "outline"}>{entry.direction === "inflow" ? "Projected income" : "Planned expense"}</Badge></div><b className={`col-start-2 font-mono text-sm sm:col-start-3 sm:row-start-1 ${entry.direction === "inflow" ? "text-[#225c50]" : "text-foreground"}`}>{entry.direction === "inflow" ? "+" : "−"}{money(entry.amountMinor, currency)}</b></div>; })}</CardContent></Card></article>;
 }
 
 export function transactionLabel(entry: CashEntry) {

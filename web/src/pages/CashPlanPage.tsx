@@ -68,21 +68,28 @@ export default function CashPlanPage() {
     }).format(value / 100);
   return (
     <AppShell activePage="cash-plan">
-      <main className="app-main" id="app-main">
+      <main
+        className="min-h-screen w-full px-4 pt-6 pb-[calc(7rem+env(safe-area-inset-bottom))] min-[761px]:px-6 min-[761px]:pt-8 min-[761px]:pb-20 min-[1200px]:px-8"
+        id="app-main"
+      >
         <PageHeader kicker="Forecast" title="Cash plan" />
-        <Card className="outlook-card dedicated-card">
-          <div className="outlook-heading">
+        <Card className="mt-5 p-[clamp(1.5rem,3vw,2.5rem)] max-[520px]:shadow-[3px_3px_0_rgba(23,24,21,0.12)]">
+          <div className="flex flex-col items-start justify-between gap-4 min-[521px]:flex-row min-[521px]:items-center">
             <div>
-              <p className="app-kicker">Cash outlook</p>
-              <h2>The next 90 days</h2>
+              <p className="mb-2 font-mono text-[0.7rem] leading-[1.35] tracking-[0.08em] text-[#3f665e] uppercase">
+                Cash outlook
+              </p>
+              <h2 className="m-0 text-[1.4rem] tracking-[-0.045em]">
+                The next 90 days
+              </h2>
             </div>
-            <div className="legend">
+            <div className="flex gap-5 text-[0.62rem] text-muted-foreground">
               <span>
-                <i />
+                <i className="mr-1.5 inline-block w-5 border-t-2 border-[#175f57] align-middle" />
                 Projected cash
               </span>
               <span>
-                <i className="dashed" />
+                <i className="mr-1.5 inline-block w-5 border-t border-dashed border-[#ae7350] align-middle" />
                 Protected level
               </span>
             </div>
@@ -90,26 +97,33 @@ export default function CashPlanPage() {
           {overview && chart ? (
             <>
               <div
-                className="app-chart"
+                className="mt-8 grid h-[280px] grid-cols-[45px_1fr] min-[521px]:h-[310px]"
                 role="img"
                 aria-label={`Projected cash reaches a low of ${money(overview.lowestBalanceMinor, currency)}.`}
               >
-                <div className="axis">
+                <div className="flex flex-col justify-between pb-7 font-mono text-[0.57rem] text-[#858c87] tabular-nums">
                   {chart.ticks.map((tick, i) => (
                     <span key={i}>{shortMoney(tick)}</span>
                   ))}
                 </div>
-                <div className="plot">
+                <div className="relative border-y border-[#e5e1d8] bg-[linear-gradient(#e5e1d8_1px,transparent_1px)] bg-[length:100%_33.333%]">
                   <svg
+                    className="absolute top-0 left-0 h-[250px] w-full"
                     viewBox="0 0 900 250"
                     preserveAspectRatio="none"
                     aria-hidden="true"
                   >
-                    <path className="app-area" d={chart.area} />
-                    <path className="app-line" d={chart.line} />
-                    <path className="reserve-line" d={chart.reserve} />
+                    <path className="fill-[#175f5714]" d={chart.area} />
+                    <path
+                      className="fill-none stroke-[#175f57] [stroke-width:2.5] [vector-effect:non-scaling-stroke]"
+                      d={chart.line}
+                    />
+                    <path
+                      className="fill-none stroke-[#ae7350] [stroke-dasharray:7_5] [stroke-width:1.5] [vector-effect:non-scaling-stroke]"
+                      d={chart.reserve}
+                    />
                   </svg>
-                  <div className="plot-dates">
+                  <div className="absolute bottom-2 flex w-full justify-between font-mono text-[0.57rem] text-[#858c87] tabular-nums">
                     <span>Today</span>
                     <span>30 days</span>
                     <span>60 days</span>
@@ -117,8 +131,11 @@ export default function CashPlanPage() {
                   </div>
                 </div>
               </div>
-              <p className="chart-summary">
-                <span>01</span>Your lowest projected balance is{" "}
+              <p className="mt-6 mb-0 flex items-start gap-3 text-[0.72rem] min-[521px]:items-center">
+                <span className="grid size-[26px] shrink-0 place-items-center rounded-full border font-mono text-[0.55rem]">
+                  01
+                </span>
+                Your lowest projected balance is{" "}
                 <strong>
                   {money(overview.lowestBalanceMinor, currency)}{" "}
                   {overview.limitingDate.startsWith("in ")
@@ -131,14 +148,16 @@ export default function CashPlanPage() {
               </p>
             </>
           ) : (
-            <p className="chart-summary">
-              <span>01</span>
+            <p className="mt-6 mb-0 flex items-start gap-3 text-[0.72rem] min-[521px]:items-center">
+              <span className="grid size-[26px] shrink-0 place-items-center rounded-full border font-mono text-[0.55rem]">
+                01
+              </span>
               {message ||
                 "Add a confirmed balance to start your 90-day projection."}
             </p>
           )}
         </Card>
-        <section className="cash-plan-ledger">
+        <section className="mt-5">
           <UpcomingLedger overview={overview} currency={currency} />
         </section>
       </main>

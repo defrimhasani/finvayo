@@ -4,12 +4,16 @@ import {
   type CashEntry,
   fail,
   type Financials,
-  PageHeader,
   type Workflows,
 } from "../appData";
 import { AppShell } from "../components/AppShell";
 import { Button } from "../components/ui/button";
-import { Card } from "../components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+} from "../components/ui/card";
 import { Checkbox } from "../components/ui/checkbox";
 import { Label } from "../components/ui/label";
 import {
@@ -103,135 +107,192 @@ export default function ReviewsPage() {
   }
   return (
     <AppShell activePage="reviews">
-      <main className="app-main" id="app-main">
-        <PageHeader kicker="Weekly rhythm" title="Reviews" />
-        <section className="workflow-grid">
-          <form className="settings-card review-form" onSubmit={completeReview}>
-            <p className="app-kicker">Five-minute routine</p>
-            <h2>Weekly review</h2>
-            <p className="settings-note">
-              {workflows.lastReview
-                ? `Last completed ${new Date(workflows.lastReview.completedAt * 1000).toLocaleDateString(undefined, { dateStyle: "medium" })}. ${workflows.lastReview.summary}`
-                : "No review completed yet."}
+      <main
+        className="min-h-screen w-full px-4 pb-28 pt-6 min-[761px]:px-6 min-[761px]:pb-20 min-[761px]:pt-8 min-[1200px]:px-8"
+        id="app-main"
+      >
+        <header className="flex min-h-28 items-center border-b border-border min-[761px]:min-h-[150px]">
+          <div>
+            <p className="mb-2 font-mono text-[0.7rem] uppercase leading-[1.35] tracking-[0.08em] text-[#3f665e]">
+              Weekly rhythm
             </p>
-            {[
-              ["cash", "Confirm current cash balance"],
-              ["income", "Mark received payments"],
-              ["expenses", "Mark paid obligations"],
-              ["overdue", "Review overdue income"],
-              ["outlook", "Review the next 30 days"],
-            ].map(([value, label]) => (
-              <Label className="terms-check" key={value}>
-                <Checkbox
-                  className="mt-[0.1rem] size-4 min-h-4"
-                  checked={steps.includes(value)}
-                  onCheckedChange={(checked) =>
-                    setSteps(
-                      checked === true
-                        ? [...steps, value]
-                        : steps.filter((s) => s !== value),
-                    )
+            <h1 className="text-[clamp(2.5rem,4.2vw,4.5rem)] font-semibold leading-none tracking-[-0.06em]">
+              Reviews
+            </h1>
+          </div>
+        </header>
+        <section className="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(300px,380px)_minmax(0,1fr)]">
+          <Card>
+            <form onSubmit={completeReview}>
+              <CardHeader>
+                <p className="font-mono text-[0.7rem] uppercase leading-[1.35] tracking-[0.08em] text-[#3f665e]">
+                  Five-minute routine
+                </p>
+                <h2 className="text-xl font-semibold tracking-[-0.04em]">
+                  Weekly review
+                </h2>
+                <CardDescription>
+                  {workflows.lastReview
+                    ? `Last completed ${new Date(workflows.lastReview.completedAt * 1000).toLocaleDateString(undefined, { dateStyle: "medium" })}. ${workflows.lastReview.summary}`
+                    : "No review completed yet."}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-3">
+                {[
+                  ["cash", "Confirm current cash balance"],
+                  ["income", "Mark received payments"],
+                  ["expenses", "Mark paid obligations"],
+                  ["overdue", "Review overdue income"],
+                  ["outlook", "Review the next 30 days"],
+                ].map(([value, label]) => (
+                  <Label
+                    className="flex cursor-pointer items-start gap-3 py-1 font-sans text-sm normal-case tracking-normal text-foreground"
+                    key={value}
+                  >
+                    <Checkbox
+                      className="mt-0.5 size-4 min-h-4 shrink-0"
+                      checked={steps.includes(value)}
+                      onCheckedChange={(checked) =>
+                        setSteps(
+                          checked === true
+                            ? [...steps, value]
+                            : steps.filter((s) => s !== value),
+                        )
+                      }
+                    />
+                    <span>{label}</span>
+                  </Label>
+                ))}
+                <Button className="mt-2 w-full" type="submit">
+                  Complete weekly review
+                </Button>
+                <p
+                  className="min-h-5 text-xs leading-5 text-muted-foreground"
+                  role="status"
+                  aria-live="polite"
+                >
+                  {reviewMessage}
+                </p>
+              </CardContent>
+            </form>
+          </Card>
+          <Card>
+            <CardHeader>
+              <p className="font-mono text-[0.7rem] uppercase leading-[1.35] tracking-[0.08em] text-[#3f665e]">
+                Get paid sooner
+              </p>
+              <h2 className="text-xl font-semibold tracking-[-0.04em]">
+                Invoice follow-up
+              </h2>
+            </CardHeader>
+            <CardContent className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="review-overdue-payment">Overdue payment</Label>
+                <Select
+                  value={followUp.entryId}
+                  onValueChange={(value) =>
+                    setFollowUp({ ...followUp, entryId: value ?? "" })
                   }
-                />
-                <span>{label}</span>
-              </Label>
-            ))}
-            <Button className="button button-primary" type="submit">
-              Complete weekly review
-            </Button>
-            <p className="transaction-message" role="status">
-              {reviewMessage}
-            </p>
-          </form>
-          <Card className="settings-card follow-up-card">
-            <p className="app-kicker">Get paid sooner</p>
-            <h2>Invoice follow-up</h2>
-            <div className="transaction-field">
-              <Label className="mb-[0.45rem] block text-[0.58rem]" htmlFor="review-overdue-payment">Overdue payment</Label>
-              <Select
-                value={followUp.entryId}
-                onValueChange={(value) =>
-                  setFollowUp({ ...followUp, entryId: value })
-                }
-              >
-                <SelectTrigger id="review-overdue-payment">
-                  <SelectValue
-                    placeholder={overdue.length
-                      ? "Choose an overdue payment"
-                      : "No overdue payments"}
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {overdue.map((entry) => (
-                    <SelectItem key={entry.id} value={entry.id}>
-                      {entry.partyName || entry.clientName || entry.name} ·{" "}
-                      {money(entry.amountMinor, currency)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="transaction-field">
-              <Label className="mb-[0.45rem] block text-[0.58rem]" htmlFor="review-follow-up-tone">Tone</Label>
-              <Select
-                value={followUp.tone}
-                onValueChange={(value) =>
-                  setFollowUp({ ...followUp, tone: value })
-                }
-              >
-                <SelectTrigger id="review-follow-up-tone"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="friendly">Friendly reminder</SelectItem>
-                  <SelectItem value="direct">Direct follow-up</SelectItem>
-                  <SelectItem value="final">Final notice</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <Button
-              className="button button-secondary"
-              variant="secondary"
-              type="button"
-              disabled={!followUp.entryId}
-              onClick={generate}
-            >
-              Generate message
-            </Button>
-            <Label className="transaction-field">
-              <span>Message</span>
-              <Textarea
-                maxLength={2000}
-                rows={6}
-                value={followUp.message}
-                onChange={(e) =>
-                  setFollowUp({ ...followUp, message: e.target.value })
-                }
-              />
-            </Label>
-            <div className="billing-actions">
+                >
+                  <SelectTrigger id="review-overdue-payment">
+                    <SelectValue
+                      placeholder={overdue.length
+                        ? "Choose an overdue payment"
+                        : "No overdue payments"}
+                     >
+                       {(value) => {
+                         const entry = overdue.find((item) => item.id === value);
+                         return entry
+                           ? `${entry.partyName || entry.clientName || entry.name} · ${money(entry.amountMinor, currency)}`
+                           : overdue.length
+                             ? "Choose an overdue payment"
+                             : "No overdue payments";
+                       }}
+                     </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {overdue.map((entry) => (
+                      <SelectItem key={entry.id} value={entry.id}>
+                        {entry.partyName || entry.clientName || entry.name} ·{" "}
+                        {money(entry.amountMinor, currency)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="review-follow-up-tone">Tone</Label>
+                <Select
+                  value={followUp.tone}
+                  onValueChange={(value) =>
+                    setFollowUp({ ...followUp, tone: value ?? "friendly" })
+                  }
+                  >
+                    <SelectTrigger id="review-follow-up-tone">
+                     <SelectValue>
+                       {() =>
+                         followUp.tone === "direct"
+                           ? "Direct follow-up"
+                           : followUp.tone === "final"
+                             ? "Final notice"
+                             : "Friendly reminder"
+                       }
+                     </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="friendly">Friendly reminder</SelectItem>
+                    <SelectItem value="direct">Direct follow-up</SelectItem>
+                    <SelectItem value="final">Final notice</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <Button
-                className="button button-secondary"
                 variant="secondary"
                 type="button"
-                disabled={!followUp.message}
-                onClick={async () => {
-                  await navigator.clipboard.writeText(followUp.message);
-                  setFollowUpStatus("Message copied.");
-                }}
+                disabled={!followUp.entryId}
+                onClick={generate}
               >
-                Copy message
+                Generate message
               </Button>
-              <Button
-                className="button button-primary"
-                type="button"
-                disabled={!followUp.entryId || !followUp.message}
-                onClick={record}
+              <Label className="grid gap-2">
+                <span>Message</span>
+                <Textarea
+                  maxLength={2000}
+                  rows={6}
+                  value={followUp.message}
+                  onChange={(e) =>
+                    setFollowUp({ ...followUp, message: e.target.value })
+                  }
+                />
+              </Label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Button
+                  variant="secondary"
+                  type="button"
+                  disabled={!followUp.message}
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(followUp.message);
+                    setFollowUpStatus("Message copied.");
+                  }}
+                >
+                  Copy message
+                </Button>
+                <Button
+                  type="button"
+                  disabled={!followUp.entryId || !followUp.message}
+                  onClick={record}
+                >
+                  Record follow-up
+                </Button>
+              </div>
+              <p
+                className="min-h-5 text-xs leading-5 text-muted-foreground"
+                role="status"
+                aria-live="polite"
               >
-                Record follow-up
-              </Button>
-            </div>
-            <p className="transaction-message" role="status">
-              {followUpStatus}
-            </p>
+                {followUpStatus}
+              </p>
+            </CardContent>
           </Card>
         </section>
       </main>
