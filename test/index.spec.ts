@@ -130,6 +130,55 @@ describe("Finvayo Worker", () => {
     }
   });
 
+  it("restricts platform administration and manages manual premium access", async () => {
+    async function signup(prefix: string) {
+      const email = `${prefix}-${crypto.randomUUID()}@example.com`;
+      const form = new FormData();
+      form.set("email", email);
+      form.set("password", "correct-horse-battery-staple");
+      form.set("terms", "on");
+      const response = await SELF.fetch("https://finvayo.test/auth/signup", { method: "POST", body: form, redirect: "manual" });
+      return { email, cookie: response.headers.get("set-cookie")?.split(";")[0] ?? "" };
+    }
+
+    const admin = await signup("admin");
+    const business = await signup("business");
+    const adminRecord = await env.DB.prepare("SELECT id FROM users WHERE email = ?").bind(admin.email).first<{ id: string }>();
+    const businessRecord = await env.DB.prepare("SELECT workspaces.id FROM workspaces JOIN users ON users.id = workspaces.owner_user_id WHERE users.email = ?").bind(business.email).first<{ id: string }>();
+    await env.DB.prepare("UPDATE users SET is_platform_admin = 1 WHERE id = ?").bind(adminRecord?.id).run();
+
+    const forbidden = await SELF.fetch("https://finvayo.test/api/admin/workspaces", { headers: { cookie: business.cookie } });
+    expect(forbidden.status).toBe(403);
+    const redirected = await SELF.fetch("https://finvayo.test/admin", { headers: { cookie: business.cookie }, redirect: "manual" });
+    expect(redirected.status).toBe(303);
+    expect(redirected.headers.get("location")).toBe("https://finvayo.test/app");
+
+    const adminPage = await SELF.fetch("https://finvayo.test/admin", { headers: { cookie: admin.cookie } });
+    expect(adminPage.status).toBe(200);
+    expect(await adminPage.text()).toContain('window.__FINVAYO__={"page":"admin"');
+    const list = await SELF.fetch(`https://finvayo.test/api/admin/workspaces?q=${encodeURIComponent(business.email)}`, { headers: { cookie: admin.cookie } });
+    expect(list.status).toBe(200);
+    await expect(list.json()).resolves.toEqual({ workspaces: [expect.objectContaining({ id: businessRecord?.id, ownerEmail: business.email, manualAccessEnabled: 0 })] });
+
+    const grant = await SELF.fetch(`https://finvayo.test/api/admin/workspaces/${businessRecord?.id}/subscription`, {
+      method: "PATCH",
+      headers: { cookie: admin.cookie, "content-type": "application/json" },
+      body: JSON.stringify({ enabled: true, note: "Cash payment received" }),
+    });
+    expect(grant.status).toBe(200);
+    const billing = await SELF.fetch("https://finvayo.test/api/billing", { headers: { cookie: business.cookie } });
+    await expect(billing.json()).resolves.toEqual(expect.objectContaining({ subscription: expect.objectContaining({ status: "active", accessSource: "manual", manualAccessNote: "Cash payment received" }) }));
+
+    const revoke = await SELF.fetch(`https://finvayo.test/api/admin/workspaces/${businessRecord?.id}/subscription`, {
+      method: "PATCH",
+      headers: { cookie: admin.cookie, "content-type": "application/json" },
+      body: JSON.stringify({ enabled: false, note: "Offline term ended" }),
+    });
+    expect(revoke.status).toBe(200);
+    const changes = await env.DB.prepare("SELECT manual_access_enabled AS enabled FROM admin_subscription_changes WHERE workspace_id = ? ORDER BY created_at").bind(businessRecord?.id).all<{ enabled: number }>();
+    expect(changes.results.map((change) => change.enabled).sort()).toEqual([0, 1]);
+  });
+
   it("signs an existing account in and rejects a wrong password", async () => {
     const email = `login-${crypto.randomUUID()}@example.com`;
     const signupForm = new FormData();

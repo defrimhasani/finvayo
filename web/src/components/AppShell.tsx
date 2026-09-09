@@ -8,6 +8,7 @@ import {
   Gauge,
   Landmark,
   Settings,
+  ShieldCheck,
   Users,
 } from "lucide-react";
 
@@ -72,6 +73,11 @@ export function AppShell({
           ))}
         </nav>
         <div className="mt-auto flex flex-col gap-1 pt-6">
+          {user?.isPlatformAdmin && !preview ? (
+            <a className="flex min-h-11 items-center gap-3 px-3 text-sm font-semibold text-white/75 no-underline transition-colors hover:bg-white/10 focus-visible:outline-white" href="/admin">
+              <ShieldCheck className="size-4 shrink-0" aria-hidden="true" /> Platform admin
+            </a>
+          ) : null}
           <a
             className={`flex min-h-11 items-center gap-3 px-3 text-sm font-semibold no-underline transition-colors hover:bg-white/10 focus-visible:outline-white ${activePage === "settings" ? "bg-secondary text-secondary-foreground" : "text-white/75"}`}
             href={preview ? "/signup" : "/app/settings"}

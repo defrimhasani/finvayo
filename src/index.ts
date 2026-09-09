@@ -11,6 +11,7 @@ import {
   validPassword,
   verifyPassword,
 } from "./auth";
+import { listAdminWorkspaces, updateAdminSubscription } from "./admin";
 import { sendWelcomeEmail, type EmailEnv } from "./email";
 import { deleteAccount, exportWorkspace, resetPlan } from "./data-controls";
 import { calculateScenario, createCashEntry, createCashSnapshot, deleteCashEntry, getFinancials, updateCashEntry } from "./financials";
@@ -67,6 +68,7 @@ async function renderApp(request: Request, env: Env, preview: boolean): Promise<
       workspaceName: user.workspaceName,
       displayName: displayName(user.email),
       trialDays: Math.max(0, Math.ceil((user.trialEndsAt - Date.now() / 1000) / 86_400)),
+      isPlatformAdmin: Boolean(user.isPlatformAdmin),
     } : undefined,
   });
 }
@@ -82,6 +84,7 @@ async function renderAuthenticatedPage(request: Request, env: Env, page: string)
       workspaceName: user.workspaceName,
       displayName: displayName(user.email),
       trialDays: Math.max(0, Math.ceil((user.trialEndsAt - Date.now() / 1000) / 86_400)),
+      isPlatformAdmin: Boolean(user.isPlatformAdmin),
     },
   });
 }
@@ -239,6 +242,9 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
   if (url.pathname === "/api/billing" && request.method === "GET") return billingStatus(request, env as StripeEnv);
   if (url.pathname === "/api/billing/checkout" && request.method === "POST") return createCheckout(request, env as StripeEnv);
   if (url.pathname === "/api/billing/portal" && request.method === "POST") return createPortal(request, env as StripeEnv);
+  if (url.pathname === "/api/admin/workspaces" && request.method === "GET") return listAdminWorkspaces(request, env.DB);
+  const adminSubscriptionMatch = url.pathname.match(/^\/api\/admin\/workspaces\/([0-9a-f-]+)\/subscription$/i);
+  if (adminSubscriptionMatch && request.method === "PATCH") return updateAdminSubscription(request, env.DB, adminSubscriptionMatch[1]);
 
   if (url.pathname.startsWith("/api/")) {
     return Response.json({ error: "Not found" }, { status: 404, headers: JSON_HEADERS });
@@ -262,6 +268,12 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
     "/app/settings": "settings",
   };
   if (appPages[appPath]) return renderAuthenticatedPage(request, env, appPages[appPath]);
+  if (appPath === "/admin") {
+    const user = await currentUser(request, env.DB);
+    if (!user) return redirect(request, "/login?next=/admin");
+    if (!user.isPlatformAdmin) return redirect(request, "/app");
+    return renderAuthenticatedPage(request, env, "admin");
+  }
 
   const publicInvoiceMatch = url.pathname.match(/^\/invoice\/([A-Za-z0-9_-]+)$/);
   if (publicInvoiceMatch && request.method === "GET") return publicInvoice(request, env.DB, publicInvoiceMatch[1]);

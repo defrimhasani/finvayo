@@ -56,6 +56,8 @@ type Billing = {
     status?: string;
     currentPeriodEnd?: number | null;
     cancelAtPeriodEnd?: boolean;
+    accessSource?: "stripe" | "manual";
+    manualAccessNote?: string | null;
   };
   trialEndsAt: number;
 };
@@ -250,6 +252,8 @@ export function SettingsPage() {
   if (billing && status === "trialing") {
     const days = Math.max(0, Math.ceil((billing.trialEndsAt - Date.now() / 1000) / 86400));
     billingNote = `${days} days remain in your free trial. Choose a plan to continue after it ends.`;
+  } else if (billing?.subscription.accessSource === "manual") {
+    billingNote = "Premium access is managed directly by Finvayo. No card is required.";
   } else if (billing) {
     const periodEnd = billing.subscription.currentPeriodEnd
       ? new Date(billing.subscription.currentPeriodEnd * 1000).toLocaleDateString(undefined, { dateStyle: "medium" })
@@ -336,7 +340,7 @@ export function SettingsPage() {
               <p className="mt-4 text-sm leading-6 text-muted-foreground">{billingNote}</p>
               <div className="mt-4 grid gap-2 sm:grid-cols-2">
                 {billing && status === "trialing" ? <><Button type="button" disabled={billingAction !== null} onClick={() => openBilling("/api/billing/checkout", { interval: "monthly" })}>Choose monthly</Button><Button variant="secondary" type="button" disabled={billingAction !== null} onClick={() => openBilling("/api/billing/checkout", { interval: "annual" })}>Choose annual</Button></> : null}
-                {billing && status !== "trialing" ? <Button className="sm:col-span-2" type="button" disabled={billingAction !== null} onClick={() => openBilling("/api/billing/portal")}>Manage billing</Button> : null}
+                {billing && status !== "trialing" && billing.subscription.accessSource !== "manual" ? <Button className="sm:col-span-2" type="button" disabled={billingAction !== null} onClick={() => openBilling("/api/billing/portal")}>Manage billing</Button> : null}
               </div>
               <p className={`mt-3 min-h-5 text-xs ${billingError ? "text-destructive" : "text-[#225c50]"}`} role="status" aria-live="polite">{billingMessage}</p>
             </Card>

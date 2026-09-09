@@ -7,6 +7,7 @@ export type AuthUser = {
   workspaceId: string;
   workspaceName: string;
   trialEndsAt: number;
+  isPlatformAdmin: number;
 };
 
 function toBase64(value: ArrayBuffer | Uint8Array): string {
@@ -124,7 +125,8 @@ export async function currentUser(request: Request, db: D1Database): Promise<Aut
   const user = await db
     .prepare(
       `SELECT users.id, users.email, workspaces.id AS workspaceId,
-        workspaces.name AS workspaceName, workspaces.trial_ends_at AS trialEndsAt
+        workspaces.name AS workspaceName, workspaces.trial_ends_at AS trialEndsAt,
+        users.is_platform_admin AS isPlatformAdmin
        FROM sessions
        JOIN users ON users.id = sessions.user_id
        JOIN workspaces ON workspaces.owner_user_id = users.id

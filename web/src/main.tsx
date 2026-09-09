@@ -18,6 +18,7 @@ const ScenariosPage = lazy(() => import("./pages/ScenariosPage"));
 const ReviewsPage = lazy(() => import("./pages/ReviewsPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const InvoicesPage = lazy(() => import("./pages/InvoicesPage"));
+const AdminPage = lazy(() => import("./pages/AdminPage"));
 
 const path = window.location.pathname.replace(/\/+$/, "") || "/";
 const bootstrap = window.__FINVAYO__ ?? {};
@@ -96,6 +97,11 @@ switch (path) {
     document.body.className = "app-page";
     setPageMetadata("Invoices | Finvayo", "#f2efe8", { robots: "noindex, noarchive" });
     page = <InvoicesPage />;
+    break;
+  case "/admin":
+    document.body.className = "app-page";
+    setPageMetadata("Platform admin | Finvayo", "#171815", { robots: "noindex, noarchive" });
+    page = <AdminPage />;
     break;
   default:
     document.body.className = "";

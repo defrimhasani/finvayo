@@ -85,12 +85,16 @@ export async function billingStatus(request: Request, env: StripeEnv): Promise<R
   const subscription = await env.DB
     .prepare(
       `SELECT status, stripe_price_id AS stripePriceId, current_period_end AS currentPeriodEnd,
-        cancel_at_period_end AS cancelAtPeriodEnd
+        cancel_at_period_end AS cancelAtPeriodEnd, manual_access_enabled AS manualAccessEnabled,
+        manual_access_note AS manualAccessNote
        FROM subscriptions WHERE workspace_id = ?`,
     )
     .bind(user.workspaceId)
     .first();
-  return json({ subscription: subscription ?? { status: "trialing" }, trialEndsAt: user.trialEndsAt });
+  if (subscription?.manualAccessEnabled) {
+    return json({ subscription: { ...subscription, status: "active", accessSource: "manual" }, trialEndsAt: user.trialEndsAt });
+  }
+  return json({ subscription: { ...(subscription ?? { status: "trialing" }), accessSource: "stripe" }, trialEndsAt: user.trialEndsAt });
 }
 
 export async function createCheckout(request: Request, env: StripeEnv): Promise<Response> {
