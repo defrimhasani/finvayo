@@ -49,6 +49,18 @@ npm run check
 
 This runs strict TypeScript checks, Worker integration tests, and a Wrangler production dry run.
 
+## Mobile App
+
+The Expo app lives in `mobile/` and connects to `https://finvayo.com` by default. Override the API origin for local development with `EXPO_PUBLIC_API_URL`.
+
+```sh
+cd mobile
+npm install
+npm run ios
+```
+
+Run `npm run check` from `mobile/` to type-check and export native production bundles. Native authentication uses the production Worker's secure first-party session cookie; no financial data or credentials are persisted by the app.
+
 ## Deployment
 
 Password reset and onboarding messages use a Cloudflare Email Service binding named `EMAIL`. Before deployment, onboard `finvayo.com` in Cloudflare Email Service and verify `hello@finvayo.com` as an allowed sender.
