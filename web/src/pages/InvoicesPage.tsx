@@ -766,7 +766,7 @@ export function InvoicesPage() {
                   <p className="py-8 text-center text-sm text-muted-foreground">Loading invoice...</p>
                 ) : null}
                 <p
-                  className={`min-h-5 text-xs ${detailError ? "text-destructive" : "text-[#225c50]"}`}
+                  className={`min-h-5 text-xs ${detailError ? "text-destructive" : "text-teal"}`}
                   role="status"
                   aria-live="polite"
                 >
@@ -1010,7 +1010,7 @@ export function InvoicesPage() {
               </div>
               <DialogFooter className="shrink-0 border-t border-border px-5 py-4 sm:px-6">
                 <p
-                  className={`min-h-5 flex-1 text-xs ${messageError ? "text-destructive" : "text-[#225c50]"}`}
+                  className={`min-h-5 flex-1 text-xs ${messageError ? "text-destructive" : "text-teal"}`}
                   role="status"
                   aria-live="polite"
                 >

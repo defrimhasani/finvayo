@@ -81,7 +81,7 @@ export function AdminPage() {
           <div><p className="mb-2 font-mono text-[0.7rem] uppercase tracking-[0.1em] text-[#3f665e]">Platform administration</p><h1 className="text-[clamp(2.5rem,6vw,5.5rem)] font-semibold leading-none tracking-[-0.065em]">Workspaces</h1><p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground">Find and manage every Finvayo workspace. Grant premium access for offline arrangements without changing its Stripe subscription.</p></div>
           <form className="flex gap-2" onSubmit={search}><Label className="sr-only" htmlFor="admin-search">Search businesses</Label><Input id="admin-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Business or owner email" /><Button type="submit" disabled={loading}><Search className="size-4" /> Search</Button></form>
         </div>
-        <p className={`min-h-10 py-3 text-sm ${message.includes("Unable") || message.includes("Forbidden") ? "text-destructive" : "text-[#225c50]"}`} role="status" aria-live="polite">{message}</p>
+        <p className={`min-h-10 py-3 text-sm ${message.includes("Unable") || message.includes("Forbidden") ? "text-destructive" : "text-teal"}`} role="status" aria-live="polite">{message}</p>
         <section className="grid gap-4" aria-busy={loading} aria-label="Businesses">
           {!loading && workspaces.length === 0 ? <Card className="p-8 text-center text-muted-foreground">No businesses match this search.</Card> : null}
           {workspaces.map((workspace) => {

@@ -321,7 +321,7 @@ export function SettingsPage() {
             </div>
             <Label className="block"><span className="mb-[0.45rem] block">Typical customer payment delay (days)</span><Input value={form.paymentDelayDays} onChange={(event) => update("paymentDelayDays", event.target.value)} type="number" min={0} max={365} required disabled={loading} /></Label>
             <Button className="mt-2 w-full" type="submit" disabled={loading || saving}>{saving ? "Saving..." : "Save workspace settings"}</Button>
-            <p className={`min-h-5 text-xs ${settingsError ? "text-destructive" : "text-[#225c50]"}`} role="status" aria-live="polite">{settingsMessage}</p>
+            <p className={`min-h-5 text-xs ${settingsError ? "text-destructive" : "text-teal"}`} role="status" aria-live="polite">{settingsMessage}</p>
           </form>
           <div className="grid min-w-0 gap-4 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
             <Card className="p-[clamp(1.5rem,3vw,2.5rem)]">
@@ -342,7 +342,7 @@ export function SettingsPage() {
                 {billing && status === "trialing" ? <><Button type="button" disabled={billingAction !== null} onClick={() => openBilling("/api/billing/checkout", { interval: "monthly" })}>Choose monthly</Button><Button variant="secondary" type="button" disabled={billingAction !== null} onClick={() => openBilling("/api/billing/checkout", { interval: "annual" })}>Choose annual</Button></> : null}
                 {billing && status !== "trialing" && billing.subscription.accessSource !== "manual" ? <Button className="sm:col-span-2" type="button" disabled={billingAction !== null} onClick={() => openBilling("/api/billing/portal")}>Manage billing</Button> : null}
               </div>
-              <p className={`mt-3 min-h-5 text-xs ${billingError ? "text-destructive" : "text-[#225c50]"}`} role="status" aria-live="polite">{billingMessage}</p>
+              <p className={`mt-3 min-h-5 text-xs ${billingError ? "text-destructive" : "text-teal"}`} role="status" aria-live="polite">{billingMessage}</p>
             </Card>
             <Card className="p-[clamp(1.5rem,3vw,2.5rem)]">
               <p className="mb-2 font-mono text-[0.7rem] uppercase tracking-[0.08em] text-[#3f665e]">Your data</p>
@@ -365,14 +365,14 @@ export function SettingsPage() {
                     <AlertDialogTitle>Confirm {pendingDestructiveAction === "delete" ? "account deletion" : "financial plan reset"}</AlertDialogTitle>
                     <AlertDialogDescription>{pendingDestructiveAction === "delete" ? "Permanently delete your Finvayo account and all workspace data?" : "Delete all financial records and review history?"} This cannot be undone.</AlertDialogDescription>
                   </AlertDialogHeader>
-                  <p className={`min-h-5 text-xs ${dataMessage ? "text-destructive" : "text-[#225c50]"}`} role="status" aria-live="polite">{dataMessage}</p>
+                  <p className={`min-h-5 text-xs ${dataMessage ? "text-destructive" : "text-teal"}`} role="status" aria-live="polite">{dataMessage}</p>
                   <AlertDialogFooter className="gap-2">
                     <AlertDialogAction variant="destructive" type="button" disabled={destructiveAction !== null} onClick={(event) => { event.preventDefault(); void confirmDestructiveAction(); }}>{destructiveAction ? "Working..." : "Confirm"}</AlertDialogAction>
                     <AlertDialogCancel variant="secondary" type="button" disabled={destructiveAction !== null}>Cancel</AlertDialogCancel>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
-              {!pendingDestructiveAction ? <p className={`mt-3 min-h-5 text-xs ${dataMessage ? "text-destructive" : "text-[#225c50]"}`} role="status" aria-live="polite">{dataMessage}</p> : null}
+              {!pendingDestructiveAction ? <p className={`mt-3 min-h-5 text-xs ${dataMessage ? "text-destructive" : "text-teal"}`} role="status" aria-live="polite">{dataMessage}</p> : null}
             </Card>
           </div>
         </section>
